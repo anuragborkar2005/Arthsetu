@@ -18,6 +18,8 @@ pub struct QueueProposal<'info> {
 }
 
 pub fn handler(ctx: Context<QueueProposal>) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
+
     let clock = Clock::get()?;
     let proposal = &mut ctx.accounts.proposal;
     let config = &ctx.accounts.dao_config;

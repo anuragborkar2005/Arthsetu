@@ -23,6 +23,8 @@ pub struct ApproveAndGoLive<'info> {
 }
 
 pub fn handler(ctx: Context<ApproveAndGoLive>) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
+
     let campaign = &mut ctx.accounts.campaign;
     campaign.is_live = true;
 

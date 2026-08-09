@@ -43,6 +43,8 @@ pub fn handler(
     proof_cid: String,
     amount: u64,
 ) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
+    require!(!ctx.accounts.campaign.emergency_withdrawn, FydaoError::EmergencyWithdrawn);
     require!(amount > 0, FydaoError::InvalidAmount);
     require!(
         proof_cid.len() <= 128,

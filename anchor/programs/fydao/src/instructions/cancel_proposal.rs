@@ -18,6 +18,8 @@ pub struct CancelProposal<'info> {
 }
 
 pub fn handler(ctx: Context<CancelProposal>) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
+
     let proposal = &mut ctx.accounts.proposal;
 
     // Only proposer or DAO authority can cancel

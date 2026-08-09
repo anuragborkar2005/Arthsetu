@@ -111,16 +111,16 @@ proposer | authority ──cancel_proposal──▶ Canceled
 
 | Gap | Location | Impact | Status |
 |---|---|---|---|
-| `execute_proposal` performs no actual action | `instructions/execute_proposal.rs:47` | Governance cannot execute anything; proposals are cosmetic | Open |
-| Voting weight = live balance; no snapshot | `instructions/cast_vote.rs:67` | Governance capture via token movement | Open |
-| Quorum denominator = proposer's own balance | `instructions/create_proposal.rs:70` | Quorum is meaningless/broken | Open |
+| `execute_proposal` performs no actual action | `instructions/execute_proposal.rs:56` | Governance cannot execute anything; proposals are cosmetic | Open |
+| Voting weight = live balance; no snapshot | `instructions/cast_vote.rs:68` | Governance capture via token movement | Open |
+| Quorum denominator = proposer's own balance | `instructions/create_proposal.rs:73` | **Fixed** — now snapshots `governance_mint.supply` | Resolved |
 | "Timelock" is just `dao_config.authority` | `lib.rs` comments | No real timelock; transfer-to-PDA breaks signing (PDAs cannot sign) | Open |
 | `delegate_votes` is a log-only no-op | `instructions/delegate_votes.rs:30` | Delegation feature is not implemented | Open |
 | Token metadata args ignored | `instructions/initialize_governance_token.rs:36` | Metadata feature not implemented | Open |
-| `paused` flag not enforced on admin instructions | `state/dao_config.rs:30`, `instructions/set_paused.rs` | `set_paused` added, but approve/release/emergency/execute/cancel/transfer still ignore `paused` | Partial |
-| `emergency_withdrawn` only enforced in `donate` | `instructions/donate.rs:43`, `release_milestone.rs` | Donations blocked after drain; milestone release still allowed; bookkeeping drifts | Partial |
+| `paused` flag enforcement | `instructions/set_paused.rs` | **Fixed** — now enforced on all fund-moving and governance-admin paths | Resolved |
+| `emergency_withdrawn` enforcement | `instructions/donate.rs:43`, `release_milestone.rs:49`, `propose_milestone.rs:47` | **Fixed** — campaign frozen after drain | Resolved |
 
-**Recent fixes applied since the initial review** (verified in git history): `set_paused` instruction added, `queue_proposal` persists `Defeated` instead of reverting, `donate` rejects after `emergency_withdrawn`, and `transfer_authority` rejects the zero address.
+**Fixes applied across the audit rounds** (verified in git history): `set_paused` added; `queue_proposal` persists `Defeated`; `transfer_authority` rejects zero address; `initialize_dao` validates delays/quorum; `execute_proposal` persists `Expired` and enforces the 14-day window; `paused` enforced on all fund-moving/admin paths; `emergency_withdrawn` enforced on all campaign write paths; `mint_authority` constrained to DAO authority; `create_proposal` snapshots mint supply.
 
 ## 7. Reference — data-flow of a stablecoin
 

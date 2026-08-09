@@ -36,7 +36,8 @@ fn test_quorum_calculation_bps() {
     let quorum_bps: u16 = 400; // 400 bps = 4%
 
     let quorum_needed = (total_votes_snapshot as u128)
-        .saturating_mul(quorum_bps as u128)
+        .checked_mul(quorum_bps as u128)
+        .unwrap()
         / 10_000u128;
 
     assert_eq!(quorum_needed, 40_000_000);
@@ -105,19 +106,23 @@ fn test_proposal_voting_state_transitions() {
 }
 
 #[test]
-fn test_transfer_authority_to_timelock_pda() {
+fn test_two_step_authority_transfer_flow() {
     let initial_admin = Pubkey::new_unique();
     let (timelock_pda, _bump) = Pubkey::find_program_address(&[b"timelock"], &Pubkey::new_unique());
+    let treasury_account = Pubkey::new_unique();
 
     let mut dao_config = DaoConfig {
         bump: 255,
         authority: initial_admin,
+        pending_authority: Pubkey::default(),
+        treasury: treasury_account,
         governance_mint: Pubkey::new_unique(),
         stablecoin_mint: Pubkey::new_unique(),
         voting_delay: 3600,
         voting_period: 86400,
         quorum_bps: 400,
         proposal_threshold: 1000,
+        max_governance_supply: 1_000_000_000,
         timelock_delay: 172800,
         next_proposal_id: 0,
         campaign_count: 0,
@@ -125,10 +130,17 @@ fn test_transfer_authority_to_timelock_pda() {
     };
 
     assert_eq!(dao_config.authority, initial_admin);
+    assert_eq!(dao_config.pending_authority, Pubkey::default());
 
-    // Transfer Authority to Timelock PDA
-    dao_config.authority = timelock_pda;
+    // Step 1: Propose Authority Transfer
+    dao_config.pending_authority = timelock_pda;
+    assert_eq!(dao_config.authority, initial_admin);
+    assert_eq!(dao_config.pending_authority, timelock_pda);
+
+    // Step 2: Accept Authority Transfer
+    dao_config.authority = dao_config.pending_authority;
+    dao_config.pending_authority = Pubkey::default();
 
     assert_eq!(dao_config.authority, timelock_pda);
-    assert_ne!(dao_config.authority, initial_admin);
+    assert_eq!(dao_config.pending_authority, Pubkey::default());
 }

@@ -42,8 +42,11 @@ pub fn handler(ctx: Context<ExecuteProposal>) -> Result<()> {
     let max_expiry_window: i64 = 14 * 86400; // 14 days
     if clock.unix_timestamp > proposal.eta.saturating_add(max_expiry_window) {
         proposal.state = ProposalState::Expired;
-        msg!("Proposal {} expired after timelock window", proposal.proposal_id);
-        return err!(FydaoError::TimelockNotExpired);
+        msg!(
+            "Proposal {} expired after timelock window",
+            proposal.proposal_id
+        );
+        return Ok(());
     }
 
     // In a full implementation the instruction_data would be decoded
