@@ -42,14 +42,16 @@ pub fn handler(ctx: Context<QueueProposal>) -> Result<()> {
 
         if total_votes < quorum_needed as u64 {
             proposal.state = ProposalState::Defeated;
-            return err!(FydaoError::QuorumNotReached);
+            msg!("Proposal {} defeated: Quorum not reached", proposal.proposal_id);
+            return Ok(());
         }
 
         if proposal.for_votes > proposal.against_votes {
             proposal.state = ProposalState::Succeeded;
         } else {
             proposal.state = ProposalState::Defeated;
-            return err!(FydaoError::ProposalDidNotPass);
+            msg!("Proposal {} defeated: Against votes exceeded For votes", proposal.proposal_id);
+            return Ok(());
         }
     }
 
