@@ -35,7 +35,15 @@ Review scope: `anchor/programs/fydao` (Anchor 1.1.2, SPL Token). Status as of re
 - `initialize_dao` is now guarded by a `GENESIS_AUTHORITY` constant (`lib.rs`) — only the pinned deployer key can bootstrap the DAO, so the single global `DaoConfig` PDA can no longer be front-run (H1 **resolved**).
 - Governance-token minting is now **program-controlled** (C5/M10 **fully resolved**): `initialize_governance_token` transfers the mint's `MintTo` authority to a program PDA (`["mint_authority"]`) via a `SetAuthority` CPI, and `mint_governance_tokens` mints with PDA signer seeds — the SPL mint authority is no longer an EOA, so the `max_governance_supply` cap can no longer be bypassed by a raw `MintTo` outside the program. The cap is additionally enforced against the real `mint.supply` (authoritative), not just the program's `total_minted` bookkeeping (H5 semantics changed accordingly).
 
-**Still open** — see sections below: H8, M1–M2, M4–M5, L3–L4.
+**Cleanup pass (this branch):**
+- **M1 resolved.** `initialize_governance_token` now creates the Metaplex metadata record for the governance mint via a CPI (`create_metadata_accounts_v3`), honoring the `name`/`symbol`/`uri` args. The metadata PDA is validated against the canonical Metaplex derivation, and the update authority is the program's `["mint_authority"]` PDA (no EOA can mutate it). The CPI runs **before** the `SetAuthority` transfer while the caller is still the mint authority (as Metaplex requires).
+- **M2 resolved.** The unused, log-only `delegate_votes` instruction was **removed** (file, `instructions/mod.rs`, `lib.rs`, and the Codama client). The interface no longer advertises delegation that doesn't exist.
+- **M4 resolved.** `donate` now writes a per-donor `DonationRecord` (`["donation", campaign, donor]`), and the new **`claim_refund`** instruction lets a donor claw back their share of a drained campaign's escrow after a governance-approved `emergency_withdraw`. The refund is capped at the escrow's remaining balance; `total_deposited` is adjusted to match. A drained campaign's escrow is no longer a one-way grant to the treasury.
+- **M6 residual resolved.** `emergency_withdraw` now adjusts `total_deposited` (`saturating_sub(amount)`), so the campaign's bookkeeping tracks the net escrow after a partial drain.
+- **L3 resolved.** Every state-changing handler emits an Anchor `#[event]` (20 events total: `DaoInitialized`, `Donated`, `MilestoneReleased`, `EmergencyWithdrawn`, `RefundClaimed`, `ProposalCreated`, `VoteCast`, `VotesUnlocked`, `ProposalQueued`, `ProposalCanceled`, `ProposalExpired`, `ProposalExecuted`, `AuthorityNominated`, `AuthorityTransferred`, `DaoPaused`, …). Off-chain indexers can subscribe to typed logs instead of parsing `msg!`.
+- **L4 resolved (partial).** `release_milestone` closes the `Milestone` PDA (rent to the campaign account) and `unlock_votes` closes the `VoteRecord` PDA (rent back to the voter). `Campaign`/`Proposal`/`GovernanceTokenState` PDAs remain open by design (their lifetime spans the protocol; see L4 section).
+
+**Still open** — see sections below: H8, M5.
 
 Severity scale: Critical > High > Medium > Low.
 
@@ -56,20 +64,20 @@ Severity scale: Critical > High > Medium > Low.
 | H6 | High | Pause enforcement across handlers | `set_paused.rs`, `emergency_withdraw.rs`, `approve_and_go_live.rs`, `propose_milestone.rs` | **Resolved** |
 | H7 | Medium | Negative/zero delays and invalid quorum accepted | `initialize_dao.rs:40-43` | **Resolved** |
 | H8 | Medium | No on-chain integration tests (TS "tests" mutate local objects; Rust tests are unit-only) | `anchor/tests/*`, `anchor/programs/fydao/tests/*` | Open |
-| M1 | Medium | Governance token metadata never created | `initialize_governance_token.rs:36-49` | Open |
-| M2 | Medium | `delegate_votes` is a no-op | `delegate_votes.rs:30-44` | Open |
+| M1 | Medium | Governance token metadata never created | `initialize_governance_token.rs` | **Resolved** |
+| M2 | Medium | `delegate_votes` is a no-op | removed (`instructions/delegate_votes.rs`, `lib.rs`, client) | **Resolved** |
 | M3 | Medium | `ProposalAction` is typed, decoded, and executed by the action triggers | `create_proposal.rs`, `release_milestone.rs`, `approve_and_go_live.rs`, `emergency_withdraw.rs`, `transfer_authority.rs` | **Resolved** |
-| M4 | Medium | Donors have no refund/claim; emergency funds go to a DAO treasury, not donors | `emergency_withdraw.rs` | Open |
+| M4 | Medium | Donors have no refund/claim; emergency funds go to a DAO treasury, not donors | `donate.rs`, `claim_refund.rs`, `donation_record.rs` | **Resolved** |
 | M5 | Medium | Milestone `proof_cid` is self-attested, unverifiable on-chain | `propose_milestone.rs` | Open |
-| M6 | Medium | `emergency_withdrawn` enforced in `donate`, `release_milestone`, and `propose_milestone`; **residual:** `total_deposited` not adjusted on withdraw (informational only) | `donate.rs:43`, `release_milestone.rs:49`, `propose_milestone.rs:47`, `emergency_withdraw.rs:65` | **Resolved** (residual noted) |
+| M6 | Medium | `emergency_withdrawn` enforced in `donate`, `release_milestone`, and `propose_milestone`; `total_deposited` adjusted on withdraw | `donate.rs`, `release_milestone.rs`, `propose_milestone.rs`, `emergency_withdraw.rs` | **Resolved** |
 | M7 | Medium | Emergency-withdraw destination constrained to `dao_config.treasury` | `emergency_withdraw.rs:27-29` | **Resolved** |
 | M8 | Medium | Program ID mismatch: placeholder `declare_id!` vs `Anchor.toml` `vault` ID | `lib.rs:9`, `Anchor.toml:8` | **Resolved** |
 | M9 | Medium | Two-step authority transfer implemented via `transfer_authority` & `accept_authority` | `transfer_authority.rs`, `accept_authority.rs` | **Resolved** |
 | M10 | Medium | Governance mint authority constrained and capped | `mint_governance_tokens.rs` | **Resolved** |
 | L1 | Low | Checked arithmetic for quorum/vote math | `queue_proposal.rs:33-44` | **Resolved** |
 | L2 | Low | Dead match arm removed from `cast_vote` | `cast_vote.rs:71-90` | **Resolved** |
-| L3 | Low | Only `msg!` logs; no Anchor events / IDL events | all handlers | Open |
-| L4 | Low | No `close`/rent-reclaim for PDAs; rent locked | — | Open |
+| L3 | Low | Only `msg!` logs; no Anchor events / IDL events | `state/events.rs`, all handlers | **Resolved** |
+| L4 | Low | No `close`/rent-reclaim for PDAs; rent locked | `release_milestone.rs`, `unlock_votes.rs` | **Resolved** (partial) |
 | L5 | Low | `trust_score` bounded to `0..=100` at creation | `create_campaign.rs:59-61` | **Resolved** |
 
 ---
@@ -151,31 +159,40 @@ Residual:
 - fund movement / campaign: `donate`, `release_milestone`, `emergency_withdraw`, `approve_and_go_live`, `propose_milestone`, `create_campaign`
 - governance / authority: `create_proposal`, `cast_vote`, `queue_proposal`, `cancel_proposal`, `mint_governance_tokens`, `transfer_authority`, `unlock_votes`
 
-While paused, **no funds can move and no governance state can change**. The only handlers that do not check `paused` are `delegate_votes` (a log-only no-op) and `initialize_governance_token` (one-time bootstrap), which are acceptable.
+While paused, **no funds can move and no governance state can change**. The only handler that does not check `paused` is `initialize_governance_token` (one-time bootstrap), which is acceptable.
 
 ---
 
 ## Medium
 
-### M1 — Governance token metadata is never created
-`initialize_governance_token` accepts `name`, `symbol`, `uri` but drops them (params prefixed `_`). No SPL Token Metadata (Metaplex) CPI is made. The feature advertised by the interface does not exist.
+### M1 — Governance token metadata is never created ✅
+**Resolved.** `initialize_governance_token` now performs a Metaplex `create_metadata_accounts_v3` CPI before the `SetAuthority` transfer, creating the canonical metadata PDA (`["metadata", MPL_TOKEN_METADATA, mint]`) with the passed `name`/`symbol`/`uri` (`DataV2`, `seller_fee_basis_points = 0`, no creators/collection/uses). The metadata account address is validated with `find_program_address` in the handler (`ActionMismatch` otherwise), and the metadata update authority is the program PDA `["mint_authority"]` with `is_mutable = true` — the program can update the record later and no EOA can. Because the CPI runs while the caller is still the mint's authority (the required signer), ordering is safe.
 
-### M2 — `delegate_votes` is a no-op
-`delegate_votes.rs:30-44` only validates the token account and logs a message. No delegation account is stored, no votes are moved, and `cast_vote` ignores it. The interface implies delegation that doesn't exist.
+Operational note: this requires the Metaplex Token Metadata program (`metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s`) to be present on the target cluster (it is on devnet/mainnet; on localnet it must be uploaded for a full bootstrap test).
+
+### M2 — `delegate_votes` is a no-op ✅
+**Resolved by removal.** The instruction only validated a token account and logged a message; no delegation was stored and `cast_vote` never consulted it. The dead interface (file, `instructions/mod.rs`, `lib.rs`, and the regenerated Codama client) is now gone, so nothing advertises delegation that doesn't exist. If delegation is desired later, it should be a first-class `Delegation` account consumed by `cast_vote`, not a log-only stub.
 
 ### M3 — Proposals can now cause things to happen ✅
 **Resolved.** `instruction_data: Vec<u8>` was replaced by the typed `ProposalAction` enum (`proposal.rs`), and the four action triggers decode and perform it atomically (see C1). There is still no arbitrary-CPI executor (e.g. calling external programs with arbitrary targets), only the four first-class DAO actions — which is a deliberate, safer scope for a prototype.
 
-### M4 — Donors have no recourse
-If a campaign stalls or fails, donors cannot claim a refund. `emergency_withdraw` returns escrow funds to the DAO treasury (never a caller-supplied address, M7). The decision to drain is now **proposal-gated** (C3), so a single key can no longer confiscate funds; but donors still have no direct refund/claim path and rely on the DAO's decision-making.
+### M4 — Donors have no recourse ✅
+**Resolved.** `donate` maintains a per-donor `DonationRecord` (`["donation", campaign, donor]`, `init_if_needed`, grows with every contribution). The new **`claim_refund`** instruction lets the donor claw back their share of a drained campaign's escrow **after** `emergency_withdraw` (`campaign.emergency_withdrawn` required, error `RefundNotAvailable` otherwise):
+- the refund is `min(donation_record.amount, escrow_remaining)` — capped so an over-drain or a partial drain is handled atomically, and a fully drained escrow yields `InsufficientFunds`;
+- the escrow→donor transfer uses the campaign PDA signer seeds (same path as milestone releases);
+- the record and `campaign.total_deposited` are decremented by the refunded amount, keeping bookkeeping consistent.
+
+Remaining policy note: `emergency_withdraw` still moves the (capped) voted amount to the treasury; `claim_refund` is **not** pro-rata across donors and there is no queue — the escrow is first-come, first-clawed within each donor's own recorded share. That is a deliberate prototype scope; a production version would likely split the drain remainder across donors on-chain.
 
 ### M5 — Milestone proofs are self-attested
 `proof_cid` is set by the creator and stored. Nothing verifies the CID or links the release amount to any off-chain deliverable. Release is now a **DAO-governed decision** (C3), which reduces the single-key risk, but the proof itself remains unverifiable on-chain.
 
-### M6 — `emergency_withdrawn` enforced across all campaign write paths ✅/⚠️
-**Fixed (enforcement).** `donate.rs:43`, `release_milestone.rs:49`, and `propose_milestone.rs:47` all reject once `campaign.emergency_withdrawn` is true, using the dedicated `EmergencyWithdrawn` error (L6). After a drain the campaign is fully frozen: no new donations, no milestone proposals, no releases.
+**Status: Open (oracle-dependent).** Closing this requires an oracle/attestation layer (e.g. a trusted verifier signing the CID, or a decentralized review protocol) that the prototype intentionally does not include. The honest framing is: the DAO votes on whether to release, and the `proof_cid` is evidence for the voters — not a trustless guarantee.
 
-**Residual (informational):** `emergency_withdraw.rs:65` sets the flag but does not adjust `total_deposited`, so after a partial drain the `total_deposited` field no longer equals the escrow balance. This has no security impact now that all post-drain writes are blocked; it only affects off-chain displays.
+### M6 — `emergency_withdrawn` enforced across all campaign write paths ✅
+**Fixed (enforcement).** `donate.rs`, `release_milestone.rs`, and `propose_milestone.rs` all reject once `campaign.emergency_withdrawn` is true, using the dedicated `EmergencyWithdrawn` error (L6). After a drain the campaign is frozen: no new donations, no milestone proposals, no releases (except the donor `claim_refund` clawback, which is the intended post-drain path).
+
+**Fixed (bookkeeping).** `emergency_withdraw.rs` now adjusts `total_deposited` with `saturating_sub(amount)` so the field tracks the net escrow after a partial drain and off-chain displays stay accurate.
 
 ### M7 — Emergency-withdraw destination is unconstrained ✅
 **Fixed.** `emergency_withdraw.rs:27-32` now constrains `destination.key() == dao_config.treasury`, where `treasury` is the canonical treasury token account recorded in `DaoConfig` at `initialize_dao`. Funds can no longer be routed to an arbitrary attacker account.
@@ -206,11 +223,15 @@ Residual:
 ### L2 — Dead code removed from `cast_vote` ✅
 **Fixed.** The unreachable `_ => return err!` arm was removed; the remaining `_` arm handles abstain after the `support <= 2` guard (`cast_vote.rs:71-90`).
 
-### L3 — No structured events
-All handlers log with `msg!` only. No Anchor `#[event]` structs are emitted, making off-chain indexers brittle (they must parse logs).
+### L3 — No structured events ✅
+**Fixed.** `state/events.rs` defines 20 Anchor `#[event]` structs, and every state-changing handler emits exactly one via `emit!` (plus `ProposalExecuted` from the action triggers and `ProposalExpired` from `finalize_execution`). The events carry the mutated identity (campaign/proposal/voter) and the new authoritative totals, so off-chain indexers can subscribe to typed logs instead of parsing `msg!`. The Codama client was regenerated with the event types.
 
-### L4 — Rent never reclaimed
-No instruction closes any PDA (`Campaign`, `Milestone`, `Proposal`, `VoteRecord`, `GovernanceTokenState`), so rent SOL is locked permanently.
+### L4 — Rent never reclaimed ✅ (partial)
+**Fixed where it matters.** Two short-lived PDAs are now closed after their final use, returning rent:
+- `Milestone` — closed on `release_milestone` (`close = campaign`, lamports returned to the campaign account);
+- `VoteRecord` — closed on `unlock_votes` (`close = voter`, lamports returned to the voter).
+
+Remaining by design: `Campaign` (lives for the campaign's lifetime and is deliberately kept after a drain so `claim_refund`/audit can reference it), `Proposal` (execution history), and `DaoConfig`/`GovernanceTokenState` (singletons). These could be closed by an explicit cleanup instruction in a production version.
 
 ### L5 — `trust_score` bounded ✅
 **Fixed.** `create_campaign.rs:59-61` rejects `trust_score > 100` (valid range `0..=100`). The value is still creator-supplied (no source verification), so it remains cosmetic; the bound prevents absurd/gameable values from entering the state.
@@ -234,11 +255,11 @@ No instruction closes any PDA (`Campaign`, `Milestone`, `Proposal`, `VoteRecord`
 **High priority:**
 8. ~~Fix the H3 regression~~ — **done**: `Expired` persists via `finalize_execution`. Optional follow-up: make the 14-day window configurable in `DaoConfig`.
 9. ~~Enforce `paused` everywhere~~ — **done**: every fund-moving and governance-admin path checks `paused`. 
-10. Adjust `total_deposited` on emergency withdraw (or track `total_withdrawn`) so bookkeeping matches the escrow for off-chain displays (extends M6; informational only).
+10. ~~Adjust `total_deposited` on emergency withdraw~~ — **done**: `emergency_withdraw` applies `saturating_sub(amount)`, so `total_deposited` tracks the net escrow (M6 bookkeeping).
 11. ~~Constrain the emergency-withdraw destination~~ — **done** (M7): pinned to `dao_config.treasury`.
 12. ~~Make authority transfer two-step~~ — **done** (M9): DAO-gated `transfer_authority` (step 1) → `accept_authority` (step 2, signed by the new key).
-13. Write real on-chain integration tests (the current TS suite never submits a transaction to the program). Add regression tests for the full proposal lifecycle (create → vote → queue → execute), the pause/emergency-withdraw paths, and the cast_vote→unlock_votes lock lifecycle.
+13. Write real on-chain integration tests (the current TS suite never submits a transaction to the program). Add regression tests for the full proposal lifecycle (create → vote → queue → execute), the pause/emergency-withdraw/claim-refund paths, and the cast_vote→unlock_votes lock lifecycle. (H8 — still open.)
 
 **Nice to have:**
-14. Implement metadata (`initialize_governance_token`), delegation, refunds/claims, and milestone-verification hooks, or strip the dead interfaces.
-15. Emit Anchor `#[event]`s, close accounts for rent reclaim, and keep `checked_*` consistent throughout.
+14. ~~Implement metadata / strip dead interfaces~~ — **done**: `initialize_governance_token` creates real Metaplex metadata (M1) and `delegate_votes` was removed (M2). Remaining: milestone-verification hooks (M5, oracle-dependent) and pro-rata refund splitting.
+15. ~~Emit Anchor `#[event]`s, close accounts for rent reclaim~~ — **done**: 20 events emitted (L3); `Milestone` and `VoteRecord` PDAs are closed on their final use (L4).
