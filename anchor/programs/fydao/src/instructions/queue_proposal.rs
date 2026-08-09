@@ -32,12 +32,15 @@ pub fn handler(ctx: Context<QueueProposal>) -> Result<()> {
     if proposal.state == ProposalState::Active || proposal.state == ProposalState::Pending {
         let total_votes = proposal
             .for_votes
-            .saturating_add(proposal.against_votes)
-            .saturating_add(proposal.abstain_votes);
+            .checked_add(proposal.against_votes)
+            .ok_or(FydaoError::Overflow)?
+            .checked_add(proposal.abstain_votes)
+            .ok_or(FydaoError::Overflow)?;
 
-        // Quorum check (against snapshot – in production use total supply)
+        // Quorum check against total_votes_at_creation snapshot
         let quorum_needed = (proposal.total_votes_at_creation as u128)
-            .saturating_mul(config.quorum_bps as u128)
+            .checked_mul(config.quorum_bps as u128)
+            .ok_or(FydaoError::Overflow)?
             / 10_000u128;
 
         if total_votes < quorum_needed as u64 {

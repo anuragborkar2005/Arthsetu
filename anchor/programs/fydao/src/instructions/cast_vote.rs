@@ -41,6 +41,7 @@ pub struct CastVote<'info> {
 }
 
 pub fn handler(ctx: Context<CastVote>, support: u8) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     require!(support <= 2, FydaoError::InvalidSupport);
 
     let clock = Clock::get()?;
@@ -80,13 +81,12 @@ pub fn handler(ctx: Context<CastVote>, support: u8) -> Result<()> {
                 .checked_add(weight)
                 .ok_or(FydaoError::Overflow)?;
         }
-        2 => {
+        _ => {
             proposal.abstain_votes = proposal
                 .abstain_votes
                 .checked_add(weight)
                 .ok_or(FydaoError::Overflow)?;
         }
-        _ => return err!(FydaoError::InvalidSupport),
     }
 
     let record = &mut ctx.accounts.vote_record;
