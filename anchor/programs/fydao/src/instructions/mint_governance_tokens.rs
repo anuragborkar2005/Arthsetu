@@ -44,6 +44,18 @@ pub fn handler(ctx: Context<MintGovernanceTokens>, amount: u64) -> Result<()> {
     require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     require!(amount > 0, FydaoError::InvalidAmount);
 
+    let new_total_minted = ctx
+        .accounts
+        .gov_token_state
+        .total_minted
+        .checked_add(amount)
+        .ok_or(FydaoError::Overflow)?;
+
+    require!(
+        new_total_minted <= ctx.accounts.dao_config.max_governance_supply,
+        FydaoError::Overflow
+    );
+
     let cpi_accounts = MintTo {
         mint: ctx.accounts.governance_mint.to_account_info(),
         to: ctx.accounts.destination.to_account_info(),
@@ -52,13 +64,8 @@ pub fn handler(ctx: Context<MintGovernanceTokens>, amount: u64) -> Result<()> {
     let cpi_program = ctx.accounts.token_program.key();
     token::mint_to(CpiContext::new(cpi_program, cpi_accounts), amount)?;
 
-    ctx.accounts.gov_token_state.total_minted = ctx
-        .accounts
-        .gov_token_state
-        .total_minted
-        .checked_add(amount)
-        .ok_or(FydaoError::Overflow)?;
+    ctx.accounts.gov_token_state.total_minted = new_total_minted;
 
-    msg!("Minted {} governance tokens", amount);
+    msg!("Minted {} governance tokens. Total supply: {} / {}", amount, new_total_minted, ctx.accounts.dao_config.max_governance_supply);
     Ok(())
 }
