@@ -40,6 +40,7 @@ pub struct Donate<'info> {
 pub fn handler(ctx: Context<Donate>, amount: u64) -> Result<()> {
     require!(amount > 0, FydaoError::InvalidAmount);
     require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
+    require!(!ctx.accounts.campaign.emergency_withdrawn, FydaoError::CampaignNotLive);
 
     // Transfer stablecoin from donor → escrow
     let cpi_accounts = Transfer {
