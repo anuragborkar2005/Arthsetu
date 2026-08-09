@@ -32,6 +32,7 @@ import {
   parseProposeMilestoneInstruction,
   parseQueueProposalInstruction,
   parseReleaseMilestoneInstruction,
+  parseTransferAuthorityInstruction,
   type ParsedApproveAndGoLiveInstruction,
   type ParsedCancelProposalInstruction,
   type ParsedCastVoteInstruction,
@@ -47,6 +48,7 @@ import {
   type ParsedProposeMilestoneInstruction,
   type ParsedQueueProposalInstruction,
   type ParsedReleaseMilestoneInstruction,
+  type ParsedTransferAuthorityInstruction,
 } from "../instructions";
 
 export const FYDAO_PROGRAM_ADDRESS =
@@ -152,6 +154,7 @@ export enum FydaoInstruction {
   ProposeMilestone,
   QueueProposal,
   ReleaseMilestone,
+  TransferAuthority,
 }
 
 export function identifyFydaoInstruction(
@@ -323,6 +326,17 @@ export function identifyFydaoInstruction(
   ) {
     return FydaoInstruction.ReleaseMilestone;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([48, 169, 76, 72, 229, 180, 55, 161]),
+      ),
+      0,
+    )
+  ) {
+    return FydaoInstruction.TransferAuthority;
+  }
   throw new Error(
     "The provided instruction could not be identified as a fydao instruction.",
   );
@@ -375,7 +389,10 @@ export type ParsedFydaoInstruction<
     } & ParsedQueueProposalInstruction<TProgram>)
   | ({
       instructionType: FydaoInstruction.ReleaseMilestone;
-    } & ParsedReleaseMilestoneInstruction<TProgram>);
+    } & ParsedReleaseMilestoneInstruction<TProgram>)
+  | ({
+      instructionType: FydaoInstruction.TransferAuthority;
+    } & ParsedTransferAuthorityInstruction<TProgram>);
 
 export function parseFydaoInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -485,6 +502,13 @@ export function parseFydaoInstruction<TProgram extends string>(
       return {
         instructionType: FydaoInstruction.ReleaseMilestone,
         ...parseReleaseMilestoneInstruction(instruction),
+      };
+    }
+    case FydaoInstruction.TransferAuthority: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: FydaoInstruction.TransferAuthority,
+        ...parseTransferAuthorityInstruction(instruction),
       };
     }
     default:

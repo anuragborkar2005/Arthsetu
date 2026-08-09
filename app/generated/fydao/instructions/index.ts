@@ -21,3 +21,4 @@ export * from "./mintGovernanceTokens";
 export * from "./proposeMilestone";
 export * from "./queueProposal";
 export * from "./releaseMilestone";
+export * from "./transferAuthority";

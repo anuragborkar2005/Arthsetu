@@ -13,6 +13,7 @@ pub mod cast_vote;
 pub mod queue_proposal;
 pub mod execute_proposal;
 pub mod cancel_proposal;
+pub mod transfer_authority;
 
 #[allow(ambiguous_glob_reexports)]
 pub use approve_and_go_live::*;
@@ -44,3 +45,5 @@ pub use propose_milestone::*;
 pub use queue_proposal::*;
 #[allow(ambiguous_glob_reexports)]
 pub use release_milestone::*;
+#[allow(ambiguous_glob_reexports)]
+pub use transfer_authority::*;

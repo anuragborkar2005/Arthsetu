@@ -140,4 +140,9 @@ pub mod fydao {
     pub fn cancel_proposal(ctx: Context<CancelProposal>) -> Result<()> {
         instructions::cancel_proposal::handler(ctx)
     }
+
+    /// Transfer DAO authority to Timelock/Governor PDA
+    pub fn transfer_authority(ctx: Context<TransferAuthority>, new_authority: Pubkey) -> Result<()> {
+        instructions::transfer_authority::handler(ctx, new_authority)
+    }
 }

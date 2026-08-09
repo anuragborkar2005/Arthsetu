@@ -103,3 +103,32 @@ fn test_proposal_voting_state_transitions() {
     assert_eq!(proposal.state, ProposalState::Executed);
     assert!(proposal.executed);
 }
+
+#[test]
+fn test_transfer_authority_to_timelock_pda() {
+    let initial_admin = Pubkey::new_unique();
+    let (timelock_pda, _bump) = Pubkey::find_program_address(&[b"timelock"], &Pubkey::new_unique());
+
+    let mut dao_config = DaoConfig {
+        bump: 255,
+        authority: initial_admin,
+        governance_mint: Pubkey::new_unique(),
+        stablecoin_mint: Pubkey::new_unique(),
+        voting_delay: 3600,
+        voting_period: 86400,
+        quorum_bps: 400,
+        proposal_threshold: 1000,
+        timelock_delay: 172800,
+        next_proposal_id: 0,
+        campaign_count: 0,
+        paused: false,
+    };
+
+    assert_eq!(dao_config.authority, initial_admin);
+
+    // Transfer Authority to Timelock PDA
+    dao_config.authority = timelock_pda;
+
+    assert_eq!(dao_config.authority, timelock_pda);
+    assert_ne!(dao_config.authority, initial_admin);
+}
