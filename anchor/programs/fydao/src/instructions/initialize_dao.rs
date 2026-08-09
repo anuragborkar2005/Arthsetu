@@ -37,8 +37,10 @@ pub fn handler(
     proposal_threshold: u64,
     timelock_delay: i64,
 ) -> Result<()> {
-    require!(quorum_bps <= 10_000, FydaoError::InvalidAmount);
+    require!(quorum_bps > 0 && quorum_bps <= 10_000, FydaoError::InvalidAmount);
+    require!(voting_delay >= 0, FydaoError::InvalidAmount);
     require!(voting_period > 0, FydaoError::InvalidAmount);
+    require!(timelock_delay >= 0, FydaoError::InvalidAmount);
 
     let config = &mut ctx.accounts.dao_config;
     config.bump = ctx.bumps.dao_config;
