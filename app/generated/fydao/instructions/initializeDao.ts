@@ -56,6 +56,7 @@ export type InitializeDaoInstruction<
   TAccountDaoConfig extends string | AccountMeta<string> = string,
   TAccountGovernanceMint extends string | AccountMeta<string> = string,
   TAccountStablecoinMint extends string | AccountMeta<string> = string,
+  TAccountTreasuryTokenAccount extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TAccountTokenProgram extends string | AccountMeta<string> =
@@ -80,6 +81,9 @@ export type InitializeDaoInstruction<
       TAccountStablecoinMint extends string
         ? ReadonlyAccount<TAccountStablecoinMint>
         : TAccountStablecoinMint,
+      TAccountTreasuryTokenAccount extends string
+        ? ReadonlyAccount<TAccountTreasuryTokenAccount>
+        : TAccountTreasuryTokenAccount,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -99,6 +103,7 @@ export type InitializeDaoInstructionData = {
   votingPeriod: bigint;
   quorumBps: number;
   proposalThreshold: bigint;
+  maxGovernanceSupply: bigint;
   timelockDelay: bigint;
 };
 
@@ -107,6 +112,7 @@ export type InitializeDaoInstructionDataArgs = {
   votingPeriod: number | bigint;
   quorumBps: number;
   proposalThreshold: number | bigint;
+  maxGovernanceSupply: number | bigint;
   timelockDelay: number | bigint;
 };
 
@@ -118,6 +124,7 @@ export function getInitializeDaoInstructionDataEncoder(): FixedSizeEncoder<Initi
       ["votingPeriod", getI64Encoder()],
       ["quorumBps", getU16Encoder()],
       ["proposalThreshold", getU64Encoder()],
+      ["maxGovernanceSupply", getU64Encoder()],
       ["timelockDelay", getI64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: INITIALIZE_DAO_DISCRIMINATOR }),
@@ -131,6 +138,7 @@ export function getInitializeDaoInstructionDataDecoder(): FixedSizeDecoder<Initi
     ["votingPeriod", getI64Decoder()],
     ["quorumBps", getU16Decoder()],
     ["proposalThreshold", getU64Decoder()],
+    ["maxGovernanceSupply", getU64Decoder()],
     ["timelockDelay", getI64Decoder()],
   ]);
 }
@@ -150,16 +158,19 @@ export type InitializeDaoAsyncInput<
   TAccountDaoConfig extends string = string,
   TAccountGovernanceMint extends string = string,
   TAccountStablecoinMint extends string = string,
+  TAccountTreasuryTokenAccount extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountRent extends string = string,
 > = {
   authority: TransactionSigner<TAccountAuthority>;
   daoConfig?: Address<TAccountDaoConfig>;
-  /** Governance token mint (must already exist or be created separately) */
+  /** Governance token mint */
   governanceMint: Address<TAccountGovernanceMint>;
   /** Stablecoin mint (USDC etc.) */
   stablecoinMint: Address<TAccountStablecoinMint>;
+  /** Canonical DAO treasury token account */
+  treasuryTokenAccount: Address<TAccountTreasuryTokenAccount>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
   rent?: Address<TAccountRent>;
@@ -167,6 +178,7 @@ export type InitializeDaoAsyncInput<
   votingPeriod: InitializeDaoInstructionDataArgs["votingPeriod"];
   quorumBps: InitializeDaoInstructionDataArgs["quorumBps"];
   proposalThreshold: InitializeDaoInstructionDataArgs["proposalThreshold"];
+  maxGovernanceSupply: InitializeDaoInstructionDataArgs["maxGovernanceSupply"];
   timelockDelay: InitializeDaoInstructionDataArgs["timelockDelay"];
 };
 
@@ -175,6 +187,7 @@ export async function getInitializeDaoInstructionAsync<
   TAccountDaoConfig extends string,
   TAccountGovernanceMint extends string,
   TAccountStablecoinMint extends string,
+  TAccountTreasuryTokenAccount extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
   TAccountRent extends string,
@@ -185,6 +198,7 @@ export async function getInitializeDaoInstructionAsync<
     TAccountDaoConfig,
     TAccountGovernanceMint,
     TAccountStablecoinMint,
+    TAccountTreasuryTokenAccount,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -197,6 +211,7 @@ export async function getInitializeDaoInstructionAsync<
     TAccountDaoConfig,
     TAccountGovernanceMint,
     TAccountStablecoinMint,
+    TAccountTreasuryTokenAccount,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -211,6 +226,10 @@ export async function getInitializeDaoInstructionAsync<
     daoConfig: { value: input.daoConfig ?? null, isWritable: true },
     governanceMint: { value: input.governanceMint ?? null, isWritable: false },
     stablecoinMint: { value: input.stablecoinMint ?? null, isWritable: false },
+    treasuryTokenAccount: {
+      value: input.treasuryTokenAccount ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },
@@ -247,6 +266,7 @@ export async function getInitializeDaoInstructionAsync<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.governanceMint),
       getAccountMeta(accounts.stablecoinMint),
+      getAccountMeta(accounts.treasuryTokenAccount),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.rent),
@@ -261,6 +281,7 @@ export async function getInitializeDaoInstructionAsync<
     TAccountDaoConfig,
     TAccountGovernanceMint,
     TAccountStablecoinMint,
+    TAccountTreasuryTokenAccount,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -272,16 +293,19 @@ export type InitializeDaoInput<
   TAccountDaoConfig extends string = string,
   TAccountGovernanceMint extends string = string,
   TAccountStablecoinMint extends string = string,
+  TAccountTreasuryTokenAccount extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountRent extends string = string,
 > = {
   authority: TransactionSigner<TAccountAuthority>;
   daoConfig: Address<TAccountDaoConfig>;
-  /** Governance token mint (must already exist or be created separately) */
+  /** Governance token mint */
   governanceMint: Address<TAccountGovernanceMint>;
   /** Stablecoin mint (USDC etc.) */
   stablecoinMint: Address<TAccountStablecoinMint>;
+  /** Canonical DAO treasury token account */
+  treasuryTokenAccount: Address<TAccountTreasuryTokenAccount>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
   rent?: Address<TAccountRent>;
@@ -289,6 +313,7 @@ export type InitializeDaoInput<
   votingPeriod: InitializeDaoInstructionDataArgs["votingPeriod"];
   quorumBps: InitializeDaoInstructionDataArgs["quorumBps"];
   proposalThreshold: InitializeDaoInstructionDataArgs["proposalThreshold"];
+  maxGovernanceSupply: InitializeDaoInstructionDataArgs["maxGovernanceSupply"];
   timelockDelay: InitializeDaoInstructionDataArgs["timelockDelay"];
 };
 
@@ -297,6 +322,7 @@ export function getInitializeDaoInstruction<
   TAccountDaoConfig extends string,
   TAccountGovernanceMint extends string,
   TAccountStablecoinMint extends string,
+  TAccountTreasuryTokenAccount extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
   TAccountRent extends string,
@@ -307,6 +333,7 @@ export function getInitializeDaoInstruction<
     TAccountDaoConfig,
     TAccountGovernanceMint,
     TAccountStablecoinMint,
+    TAccountTreasuryTokenAccount,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -318,6 +345,7 @@ export function getInitializeDaoInstruction<
   TAccountDaoConfig,
   TAccountGovernanceMint,
   TAccountStablecoinMint,
+  TAccountTreasuryTokenAccount,
   TAccountSystemProgram,
   TAccountTokenProgram,
   TAccountRent
@@ -331,6 +359,10 @@ export function getInitializeDaoInstruction<
     daoConfig: { value: input.daoConfig ?? null, isWritable: true },
     governanceMint: { value: input.governanceMint ?? null, isWritable: false },
     stablecoinMint: { value: input.stablecoinMint ?? null, isWritable: false },
+    treasuryTokenAccount: {
+      value: input.treasuryTokenAccount ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },
@@ -364,6 +396,7 @@ export function getInitializeDaoInstruction<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.governanceMint),
       getAccountMeta(accounts.stablecoinMint),
+      getAccountMeta(accounts.treasuryTokenAccount),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.rent),
@@ -378,6 +411,7 @@ export function getInitializeDaoInstruction<
     TAccountDaoConfig,
     TAccountGovernanceMint,
     TAccountStablecoinMint,
+    TAccountTreasuryTokenAccount,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -392,13 +426,15 @@ export type ParsedInitializeDaoInstruction<
   accounts: {
     authority: TAccountMetas[0];
     daoConfig: TAccountMetas[1];
-    /** Governance token mint (must already exist or be created separately) */
+    /** Governance token mint */
     governanceMint: TAccountMetas[2];
     /** Stablecoin mint (USDC etc.) */
     stablecoinMint: TAccountMetas[3];
-    systemProgram: TAccountMetas[4];
-    tokenProgram: TAccountMetas[5];
-    rent: TAccountMetas[6];
+    /** Canonical DAO treasury token account */
+    treasuryTokenAccount: TAccountMetas[4];
+    systemProgram: TAccountMetas[5];
+    tokenProgram: TAccountMetas[6];
+    rent: TAccountMetas[7];
   };
   data: InitializeDaoInstructionData;
 };
@@ -411,7 +447,7 @@ export function parseInitializeDaoInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeDaoInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -428,6 +464,7 @@ export function parseInitializeDaoInstruction<
       daoConfig: getNextAccount(),
       governanceMint: getNextAccount(),
       stablecoinMint: getNextAccount(),
+      treasuryTokenAccount: getNextAccount(),
       systemProgram: getNextAccount(),
       tokenProgram: getNextAccount(),
       rent: getNextAccount(),

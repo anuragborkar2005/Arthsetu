@@ -17,6 +17,7 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  parseAcceptAuthorityInstruction,
   parseApproveAndGoLiveInstruction,
   parseCancelProposalInstruction,
   parseCastVoteInstruction,
@@ -34,6 +35,7 @@ import {
   parseReleaseMilestoneInstruction,
   parseSetPausedInstruction,
   parseTransferAuthorityInstruction,
+  type ParsedAcceptAuthorityInstruction,
   type ParsedApproveAndGoLiveInstruction,
   type ParsedCancelProposalInstruction,
   type ParsedCastVoteInstruction,
@@ -141,6 +143,7 @@ export function identifyFydaoAccount(
 }
 
 export enum FydaoInstruction {
+  AcceptAuthority,
   ApproveAndGoLive,
   CancelProposal,
   CastVote,
@@ -164,6 +167,17 @@ export function identifyFydaoInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): FydaoInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([107, 86, 198, 91, 33, 12, 107, 160]),
+      ),
+      0,
+    )
+  ) {
+    return FydaoInstruction.AcceptAuthority;
+  }
   if (
     containsBytes(
       data,
@@ -360,6 +374,9 @@ export type ParsedFydaoInstruction<
   TProgram extends string = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
 > =
   | ({
+      instructionType: FydaoInstruction.AcceptAuthority;
+    } & ParsedAcceptAuthorityInstruction<TProgram>)
+  | ({
       instructionType: FydaoInstruction.ApproveAndGoLive;
     } & ParsedApproveAndGoLiveInstruction<TProgram>)
   | ({
@@ -416,6 +433,13 @@ export function parseFydaoInstruction<TProgram extends string>(
 ): ParsedFydaoInstruction<TProgram> {
   const instructionType = identifyFydaoInstruction(instruction);
   switch (instructionType) {
+    case FydaoInstruction.AcceptAuthority: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: FydaoInstruction.AcceptAuthority,
+        ...parseAcceptAuthorityInstruction(instruction),
+      };
+    }
     case FydaoInstruction.ApproveAndGoLive: {
       assertIsInstructionWithAccounts(instruction);
       return {

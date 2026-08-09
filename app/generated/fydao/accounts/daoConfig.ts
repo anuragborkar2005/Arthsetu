@@ -57,12 +57,15 @@ export type DaoConfig = {
   discriminator: ReadonlyUint8Array;
   bump: number;
   authority: Address;
+  pendingAuthority: Address;
+  treasury: Address;
   governanceMint: Address;
   stablecoinMint: Address;
   votingDelay: bigint;
   votingPeriod: bigint;
   quorumBps: number;
   proposalThreshold: bigint;
+  maxGovernanceSupply: bigint;
   timelockDelay: bigint;
   nextProposalId: bigint;
   campaignCount: bigint;
@@ -72,12 +75,15 @@ export type DaoConfig = {
 export type DaoConfigArgs = {
   bump: number;
   authority: Address;
+  pendingAuthority: Address;
+  treasury: Address;
   governanceMint: Address;
   stablecoinMint: Address;
   votingDelay: number | bigint;
   votingPeriod: number | bigint;
   quorumBps: number;
   proposalThreshold: number | bigint;
+  maxGovernanceSupply: number | bigint;
   timelockDelay: number | bigint;
   nextProposalId: number | bigint;
   campaignCount: number | bigint;
@@ -91,12 +97,15 @@ export function getDaoConfigEncoder(): FixedSizeEncoder<DaoConfigArgs> {
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["bump", getU8Encoder()],
       ["authority", getAddressEncoder()],
+      ["pendingAuthority", getAddressEncoder()],
+      ["treasury", getAddressEncoder()],
       ["governanceMint", getAddressEncoder()],
       ["stablecoinMint", getAddressEncoder()],
       ["votingDelay", getI64Encoder()],
       ["votingPeriod", getI64Encoder()],
       ["quorumBps", getU16Encoder()],
       ["proposalThreshold", getU64Encoder()],
+      ["maxGovernanceSupply", getU64Encoder()],
       ["timelockDelay", getI64Encoder()],
       ["nextProposalId", getU64Encoder()],
       ["campaignCount", getU64Encoder()],
@@ -112,12 +121,15 @@ export function getDaoConfigDecoder(): FixedSizeDecoder<DaoConfig> {
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["bump", getU8Decoder()],
     ["authority", getAddressDecoder()],
+    ["pendingAuthority", getAddressDecoder()],
+    ["treasury", getAddressDecoder()],
     ["governanceMint", getAddressDecoder()],
     ["stablecoinMint", getAddressDecoder()],
     ["votingDelay", getI64Decoder()],
     ["votingPeriod", getI64Decoder()],
     ["quorumBps", getU16Decoder()],
     ["proposalThreshold", getU64Decoder()],
+    ["maxGovernanceSupply", getU64Decoder()],
     ["timelockDelay", getI64Decoder()],
     ["nextProposalId", getU64Decoder()],
     ["campaignCount", getU64Decoder()],
@@ -184,5 +196,5 @@ export async function fetchAllMaybeDaoConfig(
 }
 
 export function getDaoConfigSize(): number {
-  return 156;
+  return 228;
 }

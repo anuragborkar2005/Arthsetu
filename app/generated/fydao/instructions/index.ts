@@ -6,6 +6,7 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./acceptAuthority";
 export * from "./approveAndGoLive";
 export * from "./cancelProposal";
 export * from "./castVote";

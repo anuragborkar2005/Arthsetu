@@ -129,7 +129,7 @@ export type EmergencyWithdrawAsyncInput<
   daoConfig?: Address<TAccountDaoConfig>;
   campaign: Address<TAccountCampaign>;
   escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
-  /** Destination (usually a DAO treasury ATA) */
+  /** Destination must be the canonical DAO treasury token account */
   destination: Address<TAccountDestination>;
   tokenProgram?: Address<TAccountTokenProgram>;
   amount: EmergencyWithdrawInstructionDataArgs["amount"];
@@ -233,7 +233,7 @@ export type EmergencyWithdrawInput<
   daoConfig: Address<TAccountDaoConfig>;
   campaign: Address<TAccountCampaign>;
   escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
-  /** Destination (usually a DAO treasury ATA) */
+  /** Destination must be the canonical DAO treasury token account */
   destination: Address<TAccountDestination>;
   tokenProgram?: Address<TAccountTokenProgram>;
   amount: EmergencyWithdrawInstructionDataArgs["amount"];
@@ -330,7 +330,7 @@ export type ParsedEmergencyWithdrawInstruction<
     daoConfig: TAccountMetas[1];
     campaign: TAccountMetas[2];
     escrowTokenAccount: TAccountMetas[3];
-    /** Destination (usually a DAO treasury ATA) */
+    /** Destination must be the canonical DAO treasury token account */
     destination: TAccountMetas[4];
     tokenProgram: TAccountMetas[5];
   };
