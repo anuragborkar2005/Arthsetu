@@ -45,6 +45,8 @@ pub struct ReleaseMilestone<'info> {
 }
 
 pub fn handler(ctx: Context<ReleaseMilestone>, _milestone_id: u64) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
+    require!(!ctx.accounts.campaign.emergency_withdrawn, FydaoError::EmergencyWithdrawn);
     let amount = ctx.accounts.milestone.amount;
 
     require!(

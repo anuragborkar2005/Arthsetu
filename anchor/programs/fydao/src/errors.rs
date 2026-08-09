@@ -70,4 +70,7 @@ pub enum FydaoError {
 
     #[msg("Campaign already live")]
     CampaignAlreadyLive,
+
+    #[msg("Campaign has been emergency withdrawn")]
+    EmergencyWithdrawn,
 }

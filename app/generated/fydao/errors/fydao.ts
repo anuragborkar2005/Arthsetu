@@ -60,12 +60,15 @@ export const FYDAO_ERROR__DAO_PAUSED = 0x1784; // 6020
 export const FYDAO_ERROR__INVALID_STRING_LENGTH = 0x1785; // 6021
 /** CampaignAlreadyLive: Campaign already live */
 export const FYDAO_ERROR__CAMPAIGN_ALREADY_LIVE = 0x1786; // 6022
+/** EmergencyWithdrawn: Campaign has been emergency withdrawn */
+export const FYDAO_ERROR__EMERGENCY_WITHDRAWN = 0x1787; // 6023
 
 export type FydaoError =
   | typeof FYDAO_ERROR__ALREADY_VOTED
   | typeof FYDAO_ERROR__CAMPAIGN_ALREADY_LIVE
   | typeof FYDAO_ERROR__CAMPAIGN_NOT_LIVE
   | typeof FYDAO_ERROR__DAO_PAUSED
+  | typeof FYDAO_ERROR__EMERGENCY_WITHDRAWN
   | typeof FYDAO_ERROR__INSUFFICIENT_FUNDS
   | typeof FYDAO_ERROR__INVALID_AMOUNT
   | typeof FYDAO_ERROR__INVALID_MILESTONE_ID
@@ -93,6 +96,7 @@ if (process.env.NODE_ENV !== "production") {
     [FYDAO_ERROR__CAMPAIGN_ALREADY_LIVE]: `Campaign already live`,
     [FYDAO_ERROR__CAMPAIGN_NOT_LIVE]: `Campaign is not live`,
     [FYDAO_ERROR__DAO_PAUSED]: `DAO is paused`,
+    [FYDAO_ERROR__EMERGENCY_WITHDRAWN]: `Campaign has been emergency withdrawn`,
     [FYDAO_ERROR__INSUFFICIENT_FUNDS]: `Insufficient funds in escrow`,
     [FYDAO_ERROR__INVALID_AMOUNT]: `Amount must be greater than zero`,
     [FYDAO_ERROR__INVALID_MILESTONE_ID]: `Invalid milestone id`,
