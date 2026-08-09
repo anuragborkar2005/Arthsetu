@@ -17,6 +17,7 @@ pub struct TransferAuthority<'info> {
 }
 
 pub fn handler(ctx: Context<TransferAuthority>, new_authority: Pubkey) -> Result<()> {
+    require!(new_authority != Pubkey::default(), FydaoError::InvalidAmount);
     let dao_config = &mut ctx.accounts.dao_config;
     let old_authority = dao_config.authority;
     dao_config.authority = new_authority;
