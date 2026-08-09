@@ -50,9 +50,16 @@ pub struct CreateCampaign<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handler(ctx: Context<CreateCampaign>, metadata_cid: String, trust_score: u64) -> Result<()> {
+pub fn handler(
+    ctx: Context<CreateCampaign>,
+    metadata_cid: String,
+    trust_score: u64,
+) -> Result<()> {
     require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
-    require!(metadata_cid.len() <= 128, FydaoError::InvalidStringLength);
+    require!(
+        metadata_cid.len() <= 128,
+        FydaoError::InvalidStringLength
+    );
 
     let campaign_id = ctx.accounts.dao_config.campaign_count;
     let clock = Clock::get()?;
@@ -79,6 +86,10 @@ pub fn handler(ctx: Context<CreateCampaign>, metadata_cid: String, trust_score: 
         .checked_add(1)
         .ok_or(FydaoError::Overflow)?;
 
-    msg!("Campaign {} created by {}", campaign_id, campaign.creator);
+    msg!(
+        "Campaign {} created by {}",
+        campaign_id,
+        campaign.creator
+    );
     Ok(())
 }
