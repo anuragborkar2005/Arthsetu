@@ -14,6 +14,7 @@ pub mod queue_proposal;
 pub mod execute_proposal;
 pub mod cancel_proposal;
 pub mod transfer_authority;
+pub mod accept_authority;
 pub mod set_paused;
 
 #[allow(ambiguous_glob_reexports)]
@@ -48,5 +49,7 @@ pub use queue_proposal::*;
 pub use release_milestone::*;
 #[allow(ambiguous_glob_reexports)]
 pub use transfer_authority::*;
+#[allow(ambiguous_glob_reexports)]
+pub use accept_authority::*;
 #[allow(ambiguous_glob_reexports)]
 pub use set_paused::*;

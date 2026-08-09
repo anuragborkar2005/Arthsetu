@@ -23,6 +23,7 @@ pub mod fydao {
         voting_period: i64,
         quorum_bps: u16, // basis points, e.g. 400 = 4%
         proposal_threshold: u64,
+        max_governance_supply: u64,
         timelock_delay: i64,
     ) -> Result<()> {
         instructions::initialize_dao::handler(
@@ -31,6 +32,7 @@ pub mod fydao {
             voting_period,
             quorum_bps,
             proposal_threshold,
+            max_governance_supply,
             timelock_delay,
         )
     }
@@ -141,9 +143,14 @@ pub mod fydao {
         instructions::cancel_proposal::handler(ctx)
     }
 
-    /// Transfer DAO authority to Timelock/Governor PDA
+    /// Transfer DAO authority (step 1: propose)
     pub fn transfer_authority(ctx: Context<TransferAuthority>, new_authority: Pubkey) -> Result<()> {
         instructions::transfer_authority::handler(ctx, new_authority)
+    }
+
+    /// Accept DAO authority transfer (step 2: claim)
+    pub fn accept_authority(ctx: Context<AcceptAuthority>) -> Result<()> {
+        instructions::accept_authority::handler(ctx)
     }
 
     /// Pause or unpause the DAO
