@@ -14,4 +14,8 @@ pub struct GovernanceTokenState {
 
 impl GovernanceTokenState {
     pub const SEED: &'static [u8] = b"gov_token";
+
+    /// Program PDA granted the governance mint's MintTo authority so that
+    /// minting can ONLY happen through the program (C5/M10).
+    pub const MINT_AUTHORITY_SEED: &'static [u8] = b"mint_authority";
 }

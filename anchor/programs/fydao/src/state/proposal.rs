@@ -1,6 +1,18 @@
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
+pub enum ProposalAction {
+    /// Approve a created campaign and set it live
+    ApproveCampaign { campaign: Pubkey },
+    /// Release a campaign milestone to the creator
+    ReleaseMilestone { campaign: Pubkey, milestone_id: u64 },
+    /// Drain a campaign escrow to the DAO treasury
+    EmergencyWithdraw { campaign: Pubkey, amount: u64 },
+    /// Propose a new DAO authority (step 1 of the two-step transfer)
+    TransferAuthority { new_authority: Pubkey },
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
 pub enum ProposalState {
     Pending, // created, waiting for voting delay
     Active,  // voting in progress
@@ -26,10 +38,8 @@ pub struct Proposal {
     // Human readable description
     #[max_len(512)]
     pub description: String,
-    // Instruction data that will be executed if the proposal passes
-    // (targets are remaining accounts at execution time)
-    #[max_len(1024)]
-    pub instruction_data: Vec<u8>,
+    // Typed action that will be performed once the proposal passes
+    pub action: ProposalAction,
     // Voting power snapshot at proposal creation (for quorum calc)
     pub total_votes_at_creation: u64,
     // Votes for

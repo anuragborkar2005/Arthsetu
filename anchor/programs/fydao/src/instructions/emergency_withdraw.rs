@@ -3,17 +3,19 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::errors::FydaoError;
 use crate::state::*;
+use crate::instructions::execution::finalize_execution;
 
 #[derive(Accounts)]
 pub struct EmergencyWithdraw<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         seeds = [DaoConfig::SEED],
-        bump = dao_config.bump,
-        constraint = authority.key() == dao_config.authority @ FydaoError::OnlyDao
+        bump = dao_config.bump
     )]
     pub dao_config: Account<'info, DaoConfig>,
+
+    /// The passed proposal that authorizes this drain
+    #[account(mut)]
+    pub proposal: Account<'info, Proposal>,
 
     #[account(mut)]
     pub campaign: Account<'info, Campaign>,
@@ -34,8 +36,26 @@ pub struct EmergencyWithdraw<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handler(ctx: Context<EmergencyWithdraw>, amount: u64) -> Result<()> {
+pub fn handler(ctx: Context<EmergencyWithdraw>, _amount: u64) -> Result<()> {
     require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
+    let clock = Clock::get()?;
+
+    let proposal = &mut ctx.accounts.proposal;
+    if !finalize_execution(proposal, &clock)? {
+        return Ok(());
+    }
+
+    // The proposal must exactly authorize draining this campaign for the voted amount.
+    let amount = match proposal.action {
+        ProposalAction::EmergencyWithdraw { campaign, amount } => {
+            require!(
+                campaign == ctx.accounts.campaign.key(),
+                FydaoError::ActionMismatch
+            );
+            amount
+        }
+        _ => return Err(FydaoError::ActionMismatch.into()),
+    };
     require!(amount > 0, FydaoError::InvalidAmount);
     require!(
         ctx.accounts.escrow_token_account.amount >= amount,
@@ -65,8 +85,17 @@ pub fn handler(ctx: Context<EmergencyWithdraw>, amount: u64) -> Result<()> {
         amount,
     )?;
 
+    proposal.state = ProposalState::Executed;
+    proposal.executed = true;
+
     ctx.accounts.campaign.emergency_withdrawn = true;
 
-    msg!("Emergency withdraw of {} from campaign to treasury {}", amount, ctx.accounts.dao_config.treasury);
+    msg!(
+        "Emergency withdraw of {} from campaign {} to treasury {} via proposal {}",
+        amount,
+        ctx.accounts.campaign.campaign_id,
+        ctx.accounts.dao_config.treasury,
+        proposal.proposal_id
+    );
     Ok(())
 }

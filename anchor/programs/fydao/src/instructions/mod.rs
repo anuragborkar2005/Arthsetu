@@ -10,8 +10,9 @@ pub mod release_milestone;
 pub mod emergency_withdraw;
 pub mod create_proposal;
 pub mod cast_vote;
+pub mod unlock_votes;
 pub mod queue_proposal;
-pub mod execute_proposal;
+pub mod execution;
 pub mod cancel_proposal;
 pub mod transfer_authority;
 pub mod accept_authority;
@@ -24,6 +25,8 @@ pub use cancel_proposal::*;
 #[allow(ambiguous_glob_reexports)]
 pub use cast_vote::*;
 #[allow(ambiguous_glob_reexports)]
+pub use unlock_votes::*;
+#[allow(ambiguous_glob_reexports)]
 pub use create_campaign::*;
 #[allow(ambiguous_glob_reexports)]
 pub use create_proposal::*;
@@ -34,7 +37,7 @@ pub use donate::*;
 #[allow(ambiguous_glob_reexports)]
 pub use emergency_withdraw::*;
 #[allow(ambiguous_glob_reexports)]
-pub use execute_proposal::*;
+pub use execution::*;
 #[allow(ambiguous_glob_reexports)]
 pub use initialize_dao::*;
 #[allow(ambiguous_glob_reexports)]

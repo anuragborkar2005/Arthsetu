@@ -5,7 +5,7 @@ use crate::errors::FydaoError;
 use crate::state::*;
 
 #[derive(Accounts)]
-#[instruction(description: String, instruction_data: Vec<u8>)]
+#[instruction(description: String, action: ProposalAction)]
 pub struct CreateProposal<'info> {
     #[account(mut)]
     pub proposer: Signer<'info>,
@@ -46,15 +46,11 @@ pub struct CreateProposal<'info> {
 pub fn handler(
     ctx: Context<CreateProposal>,
     description: String,
-    instruction_data: Vec<u8>,
+    action: ProposalAction,
 ) -> Result<()> {
     require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     require!(
         description.len() <= 512,
-        FydaoError::InvalidStringLength
-    );
-    require!(
-        instruction_data.len() <= 1024,
         FydaoError::InvalidStringLength
     );
 
@@ -77,7 +73,7 @@ pub fn handler(
     proposal.proposal_id = proposal_id;
     proposal.proposer = ctx.accounts.proposer.key();
     proposal.description = description;
-    proposal.instruction_data = instruction_data;
+    proposal.action = action;
     proposal.total_votes_at_creation = total_votes_snapshot;
     proposal.for_votes = 0;
     proposal.against_votes = 0;

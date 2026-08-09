@@ -44,6 +44,10 @@ pub fn handler(
     max_governance_supply: u64,
     timelock_delay: i64,
 ) -> Result<()> {
+    require!(
+        ctx.accounts.authority.key() == crate::GENESIS_AUTHORITY,
+        FydaoError::OnlyGenesis
+    );
     require!(quorum_bps > 0 && quorum_bps <= 10_000, FydaoError::InvalidAmount);
     require!(voting_delay >= 0, FydaoError::InvalidAmount);
     require!(voting_period > 0, FydaoError::InvalidAmount);

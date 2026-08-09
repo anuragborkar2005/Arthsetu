@@ -3,18 +3,19 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::errors::FydaoError;
 use crate::state::*;
+use crate::instructions::execution::finalize_execution;
 
 #[derive(Accounts)]
 pub struct ReleaseMilestone<'info> {
-    /// Must be the DAO authority (timelock equivalent)
-    pub authority: Signer<'info>,
-
     #[account(
         seeds = [DaoConfig::SEED],
-        bump = dao_config.bump,
-        constraint = authority.key() == dao_config.authority @ FydaoError::OnlyDao
+        bump = dao_config.bump
     )]
     pub dao_config: Account<'info, DaoConfig>,
+
+    /// The passed proposal that authorizes this milestone release
+    #[account(mut)]
+    pub proposal: Account<'info, Proposal>,
 
     #[account(mut)]
     pub campaign: Account<'info, Campaign>,
@@ -47,6 +48,23 @@ pub struct ReleaseMilestone<'info> {
 pub fn handler(ctx: Context<ReleaseMilestone>, _milestone_id: u64) -> Result<()> {
     require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     require!(!ctx.accounts.campaign.emergency_withdrawn, FydaoError::EmergencyWithdrawn);
+    let clock = Clock::get()?;
+
+    let proposal = &mut ctx.accounts.proposal;
+    if !finalize_execution(proposal, &clock)? {
+        return Ok(());
+    }
+
+    // The proposal must exactly authorize releasing this milestone.
+    require!(
+        proposal.action
+            == ProposalAction::ReleaseMilestone {
+                campaign: ctx.accounts.campaign.key(),
+                milestone_id: ctx.accounts.milestone.milestone_id,
+            },
+        FydaoError::ActionMismatch
+    );
+
     let amount = ctx.accounts.milestone.amount;
 
     require!(
@@ -79,9 +97,12 @@ pub fn handler(ctx: Context<ReleaseMilestone>, _milestone_id: u64) -> Result<()>
     )?;
 
     // Update state
+    proposal.state = ProposalState::Executed;
+    proposal.executed = true;
+
     let milestone = &mut ctx.accounts.milestone;
     milestone.released = true;
-    milestone.released_at = Clock::get()?.unix_timestamp;
+    milestone.released_at = clock.unix_timestamp;
 
     let campaign = &mut ctx.accounts.campaign;
     campaign.total_released = campaign
@@ -90,9 +111,10 @@ pub fn handler(ctx: Context<ReleaseMilestone>, _milestone_id: u64) -> Result<()>
         .ok_or(FydaoError::Overflow)?;
 
     msg!(
-        "Released milestone {} amount {} to creator",
+        "Released milestone {} amount {} to creator via proposal {}",
         milestone.milestone_id,
-        amount
+        amount,
+        proposal.proposal_id
     );
     Ok(())
 }

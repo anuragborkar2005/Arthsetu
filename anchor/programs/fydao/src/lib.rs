@@ -5,8 +5,21 @@ pub mod instructions;
 pub mod state;
 
 use instructions::*;
+use state::*;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+
+/// Genesis key allowed to bootstrap the DAO (`initialize_dao`). Fixes H1:
+/// `initialize_dao` can no longer be front-run, because only this key can
+/// create the single global `DaoConfig` PDA.
+///
+/// Set this to the deployer's key before a real deployment; the local dev
+/// wallet pubkey (the `[provider] wallet` in `Anchor.toml`) is pinned for the
+/// prototype.
+pub const GENESIS_AUTHORITY: Pubkey = Pubkey::new_from_array([
+    30, 173, 167, 136, 10, 96, 9, 97, 66, 104, 19, 238, 145, 202, 110, 48, 204, 13, 138, 78, 48, 99,
+    214, 151, 252, 75, 39, 33, 24, 2, 248, 228,
+]);
 
 #[program]
 pub mod fydao {
@@ -97,7 +110,7 @@ pub mod fydao {
         instructions::propose_milestone::handler(ctx, proof_cid, amount)
     }
 
-    /// Release a milestone after successful governance vote (called by timelock)
+    /// Release a milestone after a successful governance proposal (permissionless trigger)
     pub fn release_milestone(ctx: Context<ReleaseMilestone>, milestone_id: u64) -> Result<()> {
         instructions::release_milestone::handler(ctx, milestone_id)
     }
@@ -111,15 +124,15 @@ pub mod fydao {
     // Governance (custom Governor)
     // ──────────────────────────────────────────────
 
-    /// Create a proposal (any holder above threshold)
+    /// Create a proposal (any holder above threshold) with a typed action
     pub fn create_proposal(
         ctx: Context<CreateProposal>,
         description: String,
-        // serialized instruction data that will be executed if proposal passes
-        // For simplicity we store targets as remaining accounts + instruction data
-        instruction_data: Vec<u8>,
+        // typed action performed once the proposal passes:
+        // ApproveCampaign | ReleaseMilestone | EmergencyWithdraw | TransferAuthority
+        action: ProposalAction,
     ) -> Result<()> {
-        instructions::create_proposal::handler(ctx, description, instruction_data)
+        instructions::create_proposal::handler(ctx, description, action)
     }
 
     /// Cast a vote on an active proposal
@@ -128,14 +141,14 @@ pub mod fydao {
         instructions::cast_vote::handler(ctx, support)
     }
 
+    /// Unlock a voter's governance tokens once the proposal reaches a final state
+    pub fn unlock_votes(ctx: Context<UnlockVotes>) -> Result<()> {
+        instructions::unlock_votes::handler(ctx)
+    }
+
     /// Queue a successful proposal into the timelock
     pub fn queue_proposal(ctx: Context<QueueProposal>) -> Result<()> {
         instructions::queue_proposal::handler(ctx)
-    }
-
-    /// Execute a queued proposal after timelock delay
-    pub fn execute_proposal(ctx: Context<ExecuteProposal>) -> Result<()> {
-        instructions::execute_proposal::handler(ctx)
     }
 
     /// Cancel a proposal (proposer or guardian)
@@ -143,9 +156,9 @@ pub mod fydao {
         instructions::cancel_proposal::handler(ctx)
     }
 
-    /// Transfer DAO authority (step 1: propose)
-    pub fn transfer_authority(ctx: Context<TransferAuthority>, new_authority: Pubkey) -> Result<()> {
-        instructions::transfer_authority::handler(ctx, new_authority)
+    /// Transfer DAO authority (step 1: DAO votes to nominate; see accept_authority for step 2)
+    pub fn transfer_authority(ctx: Context<TransferAuthority>) -> Result<()> {
+        instructions::transfer_authority::handler(ctx)
     }
 
     /// Accept DAO authority transfer (step 2: claim)

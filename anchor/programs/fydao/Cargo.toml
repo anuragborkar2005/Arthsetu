@@ -9,8 +9,8 @@ crate-type = ["cdylib", "rlib"]
 name = "fydao"
 
 [features]
-default = []
-cpi = ["no-entrypoint"]
+default = ["anchor-lang/init-if-needed"]
+cpi = ["no-entrypoint", "anchor-lang/init-if-needed"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []

@@ -13,8 +13,12 @@ pub struct VoteRecord {
     /// Voting power used
     pub weight: u64,
     pub voted_at: i64,
+    /// Whether the locked voting power has been returned to the voter
+    pub unlocked: bool,
 }
 
 impl VoteRecord {
     pub const SEED: &'static [u8] = b"vote";
+    /// Seed prefix for the per-voter vote escrow PDA that owns locked voting tokens
+    pub const VOTE_ESCROW_SEED: &'static [u8] = b"vote_escrow";
 }

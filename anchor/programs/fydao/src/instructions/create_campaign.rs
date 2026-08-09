@@ -60,6 +60,10 @@ pub fn handler(
         metadata_cid.len() <= 128,
         FydaoError::InvalidStringLength
     );
+    require!(
+        trust_score <= 100,
+        FydaoError::InvalidAmount
+    );
 
     let campaign_id = ctx.accounts.dao_config.campaign_count;
     let clock = Clock::get()?;

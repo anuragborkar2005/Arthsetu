@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::token::{self, Mint, SetAuthority, Token};
 
+use crate::errors::FydaoError;
 use crate::state::*;
 
 #[derive(Accounts)]
@@ -25,8 +26,19 @@ pub struct InitializeGovernanceToken<'info> {
     pub gov_token_state: Account<'info, GovernanceTokenState>,
 
     /// The mint that will be used as governance token
-    /// Authority of the mint should be the DAO or a PDA
     pub governance_mint: Account<'info, Mint>,
+
+    /// Program PDA that becomes the governance mint's sole MintTo authority,
+    /// so minting can only happen through the program (C5/M10).
+    #[account(
+        seeds = [GovernanceTokenState::MINT_AUTHORITY_SEED],
+        bump
+    )]
+    /// CHECK: used only as the target of the SetAuthority CPI
+    pub mint_authority_pda: UncheckedAccount<'info>,
+
+    /// Current mint authority of `governance_mint`; must transfer it to the PDA
+    pub current_mint_authority: Signer<'info>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
@@ -39,12 +51,35 @@ pub fn handler(
     _symbol: String,
     _uri: String,
 ) -> Result<()> {
+    require!(
+        ctx.accounts.governance_mint.mint_authority.is_some()
+            && ctx.accounts.governance_mint.mint_authority.unwrap()
+                == ctx.accounts.current_mint_authority.key(),
+        FydaoError::InvalidMintAuthority
+    );
+
+    let pda_key = ctx.accounts.mint_authority_pda.key();
+
+    // Hand the governance mint's MintTo authority to the program PDA. From
+    // here on, only `mint_governance_tokens` (which caps the supply) can mint.
+    token::set_authority(
+        CpiContext::new(
+            ctx.accounts.token_program.key(),
+            SetAuthority {
+                account_or_mint: ctx.accounts.governance_mint.to_account_info(),
+                current_authority: ctx.accounts.current_mint_authority.to_account_info(),
+            },
+        ),
+        anchor_spl::token::spl_token::instruction::AuthorityType::MintTokens,
+        Some(pda_key),
+    )?;
+
     let state = &mut ctx.accounts.gov_token_state;
     state.bump = ctx.bumps.gov_token_state;
     state.mint = ctx.accounts.governance_mint.key();
     state.authority = ctx.accounts.authority.key();
     state.total_minted = 0;
 
-    msg!("Governance token state initialized");
+    msg!("Governance token state initialized; mint authority = {}", pda_key);
     Ok(())
 }

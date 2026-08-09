@@ -73,4 +73,19 @@ pub enum FydaoError {
 
     #[msg("Campaign has been emergency withdrawn")]
     EmergencyWithdrawn,
+
+    #[msg("Voting power has already been unlocked")]
+    AlreadyUnlocked,
+
+    #[msg("Voting power is still locked until the proposal reaches a final state")]
+    VotesStillLocked,
+
+    #[msg("Proposal action does not match the requested operation")]
+    ActionMismatch,
+
+    #[msg("Only the genesis authority can initialize the DAO")]
+    OnlyGenesis,
+
+    #[msg("Current signer is not the governance mint's mint authority")]
+    InvalidMintAuthority,
 }
