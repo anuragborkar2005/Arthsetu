@@ -90,6 +90,13 @@ pub fn handler(
         .checked_add(1)
         .ok_or(FydaoError::Overflow)?;
 
+    emit!(CampaignCreated {
+        campaign_id,
+        creator: campaign.creator,
+        metadata_cid: campaign.metadata_cid.clone(),
+        trust_score: campaign.trust_score,
+    });
+
     msg!(
         "Campaign {} created by {}",
         campaign_id,

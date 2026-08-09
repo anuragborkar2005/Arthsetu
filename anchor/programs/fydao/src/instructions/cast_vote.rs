@@ -136,6 +136,13 @@ pub fn handler(ctx: Context<CastVote>, support: u8) -> Result<()> {
     record.voted_at = clock.unix_timestamp;
     record.unlocked = false;
 
+    emit!(VoteCast {
+        proposal_id: proposal.proposal_id,
+        voter: ctx.accounts.voter.key(),
+        support,
+        weight,
+    });
+
     msg!(
         "Vote cast: support={} weight={} locked in escrow on proposal {}",
         support,

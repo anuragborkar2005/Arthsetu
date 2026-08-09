@@ -22,6 +22,7 @@ pub struct ReleaseMilestone<'info> {
 
     #[account(
         mut,
+        close = campaign,
         constraint = milestone.campaign == campaign.key() @ FydaoError::InvalidMilestoneId,
         constraint = !milestone.released @ FydaoError::MilestoneAlreadyReleased
     )]
@@ -109,6 +110,16 @@ pub fn handler(ctx: Context<ReleaseMilestone>, _milestone_id: u64) -> Result<()>
         .total_released
         .checked_add(amount)
         .ok_or(FydaoError::Overflow)?;
+
+    emit!(ProposalExecuted {
+        proposal_id: proposal.proposal_id,
+    });
+    emit!(MilestoneReleased {
+        campaign_id: campaign.campaign_id,
+        milestone_id: milestone.milestone_id,
+        amount,
+        proposal_id: proposal.proposal_id,
+    });
 
     msg!(
         "Released milestone {} amount {} to creator via proposal {}",

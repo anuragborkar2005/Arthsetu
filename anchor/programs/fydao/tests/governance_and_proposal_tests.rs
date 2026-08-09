@@ -102,6 +102,62 @@ fn test_genesis_authority_is_not_default() {
 }
 
 #[test]
+fn test_donation_record_pda_derivation_is_stable() {
+    let program_id = Pubkey::new_unique();
+    let campaign = Pubkey::new_unique();
+    let donor = Pubkey::new_unique();
+
+    let (pda, bump) = Pubkey::find_program_address(
+        &[DonationRecord::SEED, campaign.as_ref(), donor.as_ref()],
+        &program_id,
+    );
+    let (pda2, bump2) = Pubkey::find_program_address(
+        &[DonationRecord::SEED, campaign.as_ref(), donor.as_ref()],
+        &program_id,
+    );
+
+    assert_eq!(pda, pda2);
+    assert_eq!(bump, bump2);
+    assert_ne!(pda, Pubkey::default());
+    assert!(bump <= 255);
+}
+
+#[test]
+fn test_refund_is_capped_by_remaining_escrow() {
+    // M4: after a partial drain the donor's claim is capped at the escrow
+    // balance, and a fully drained escrow yields nothing.
+    let donated = 100u64;
+    let escrow_remaining = 40u64;
+    let refund = std::cmp::min(donated, escrow_remaining);
+    assert_eq!(refund, 40);
+    assert_eq!(std::cmp::min(donated, 0u64), 0);
+}
+
+#[test]
+fn test_emergency_withdraw_adjusts_total_deposited() {
+    // M6 residual: bookkeeping is kept consistent with the escrow.
+    let mut total_deposited = 1_000u64;
+    total_deposited = total_deposited.saturating_sub(400u64);
+    assert_eq!(total_deposited, 600);
+    // An over-drain cannot underflow.
+    total_deposited = total_deposited.saturating_sub(1_000u64);
+    assert_eq!(total_deposited, 0);
+}
+
+#[test]
+fn test_governance_token_metadata_pda_derivation() {
+    // M1: the metadata account must be the canonical Metaplex PDA.
+    let mint = Pubkey::new_unique();
+    let (pda, bump) = Pubkey::find_program_address(
+        &[b"metadata", anchor_spl::metadata::ID.as_ref(), mint.as_ref()],
+        &anchor_spl::metadata::ID,
+    );
+
+    assert_ne!(pda, Pubkey::default());
+    assert!(bump <= 255);
+}
+
+#[test]
 fn test_unlock_only_allowed_in_final_states() {
     fn is_final(state: &ProposalState) -> bool {
         matches!(

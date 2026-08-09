@@ -94,6 +94,13 @@ pub fn handler(
         .checked_add(1)
         .ok_or(FydaoError::Overflow)?;
 
+    emit!(ProposalCreated {
+        proposal_id,
+        proposer: proposal.proposer,
+        description: proposal.description.clone(),
+        action: proposal.action,
+    });
+
     msg!("Proposal {} created", proposal_id);
     Ok(())
 }

@@ -88,4 +88,7 @@ pub enum FydaoError {
 
     #[msg("Current signer is not the governance mint's mint authority")]
     InvalidMintAuthority,
+
+    #[msg("Refunds are only available after the campaign has been drained")]
+    RefundNotAvailable,
 }

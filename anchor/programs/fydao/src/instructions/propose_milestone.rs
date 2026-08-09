@@ -78,6 +78,13 @@ pub fn handler(
         .checked_add(1)
         .ok_or(FydaoError::Overflow)?;
 
+    emit!(MilestoneProposed {
+        campaign_id: campaign.campaign_id,
+        milestone_id,
+        amount,
+        proof_cid: milestone.proof_cid.clone(),
+    });
+
     msg!(
         "Milestone {} proposed for campaign {} amount {}",
         milestone_id,

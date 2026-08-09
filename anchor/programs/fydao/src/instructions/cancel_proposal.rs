@@ -39,6 +39,10 @@ pub fn handler(ctx: Context<CancelProposal>) -> Result<()> {
 
     proposal.state = ProposalState::Canceled;
 
+    emit!(ProposalCanceled {
+        proposal_id: proposal.proposal_id,
+    });
+
     msg!("Proposal {} canceled", proposal.proposal_id);
     Ok(())
 }

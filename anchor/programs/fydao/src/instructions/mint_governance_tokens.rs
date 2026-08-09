@@ -88,6 +88,13 @@ pub fn handler(ctx: Context<MintGovernanceTokens>, amount: u64) -> Result<()> {
         .ok_or(FydaoError::Overflow)?;
     ctx.accounts.gov_token_state.total_minted = new_total_minted;
 
+    emit!(GovernanceTokensMinted {
+        to: ctx.accounts.destination.key(),
+        amount,
+        supply: new_supply,
+        max_supply: ctx.accounts.dao_config.max_governance_supply,
+    });
+
     msg!(
         "Minted {} governance tokens. Total supply: {} / {}",
         amount,

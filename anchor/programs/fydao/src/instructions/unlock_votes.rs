@@ -24,6 +24,7 @@ pub struct UnlockVotes<'info> {
 
     #[account(
         mut,
+        close = voter,
         seeds = [
             VoteRecord::SEED,
             proposal.key().as_ref(),
@@ -102,6 +103,12 @@ pub fn handler(ctx: Context<UnlockVotes>) -> Result<()> {
     )?;
 
     ctx.accounts.vote_record.unlocked = true;
+
+    emit!(VotesUnlocked {
+        proposal_id: proposal.proposal_id,
+        voter: ctx.accounts.voter.key(),
+        amount,
+    });
 
     msg!(
         "Unlocked {} governance tokens for voter {} from proposal {}",

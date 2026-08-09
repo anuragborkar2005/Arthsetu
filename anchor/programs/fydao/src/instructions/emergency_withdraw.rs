@@ -88,12 +88,26 @@ pub fn handler(ctx: Context<EmergencyWithdraw>, _amount: u64) -> Result<()> {
     proposal.state = ProposalState::Executed;
     proposal.executed = true;
 
-    ctx.accounts.campaign.emergency_withdrawn = true;
+    let campaign = &mut ctx.accounts.campaign;
+    campaign.emergency_withdrawn = true;
+    // M6 residual: keep bookkeeping consistent with the escrow so off-chain
+    // displays show the net remaining funds after a partial drain.
+    campaign.total_deposited = campaign.total_deposited.saturating_sub(amount);
+
+    emit!(ProposalExecuted {
+        proposal_id: proposal.proposal_id,
+    });
+    emit!(EmergencyWithdrawn {
+        campaign_id: campaign.campaign_id,
+        amount,
+        treasury: ctx.accounts.dao_config.treasury,
+        proposal_id: proposal.proposal_id,
+    });
 
     msg!(
         "Emergency withdraw of {} from campaign {} to treasury {} via proposal {}",
         amount,
-        ctx.accounts.campaign.campaign_id,
+        campaign.campaign_id,
         ctx.accounts.dao_config.treasury,
         proposal.proposal_id
     );

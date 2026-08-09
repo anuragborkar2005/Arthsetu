@@ -24,6 +24,10 @@ pub fn handler(ctx: Context<AcceptAuthority>) -> Result<()> {
     dao_config.authority = dao_config.pending_authority;
     dao_config.pending_authority = Pubkey::default();
 
+    emit!(AuthorityTransferred {
+        new_authority: dao_config.authority,
+    });
+
     msg!(
         "DAO Authority transfer accepted. Authority updated from {} to {}",
         old_authority,

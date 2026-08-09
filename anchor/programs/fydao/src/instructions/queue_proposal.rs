@@ -71,6 +71,11 @@ pub fn handler(ctx: Context<QueueProposal>) -> Result<()> {
         .unix_timestamp
         .saturating_add(config.timelock_delay);
 
+    emit!(ProposalQueued {
+        proposal_id: proposal.proposal_id,
+        eta: proposal.eta,
+    });
+
     msg!(
         "Proposal {} queued. ETA = {}",
         proposal.proposal_id,

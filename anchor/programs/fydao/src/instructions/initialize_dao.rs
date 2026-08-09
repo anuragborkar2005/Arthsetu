@@ -71,6 +71,19 @@ pub fn handler(
     config.campaign_count = 0;
     config.paused = false;
 
+    emit!(DaoInitialized {
+        authority: config.authority,
+        treasury: config.treasury,
+        governance_mint: config.governance_mint,
+        stablecoin_mint: config.stablecoin_mint,
+        voting_delay: config.voting_delay,
+        voting_period: config.voting_period,
+        quorum_bps: config.quorum_bps,
+        proposal_threshold: config.proposal_threshold,
+        max_governance_supply: config.max_governance_supply,
+        timelock_delay: config.timelock_delay,
+    });
+
     msg!("DAO initialized by {}, treasury: {}", config.authority, config.treasury);
     Ok(())
 }

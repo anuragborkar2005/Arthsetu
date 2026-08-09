@@ -69,11 +69,6 @@ pub mod fydao {
         instructions::mint_governance_tokens::handler(ctx, amount)
     }
 
-    /// Delegate voting power
-    pub fn delegate_votes(ctx: Context<DelegateVotes>, amount: u64) -> Result<()> {
-        instructions::delegate_votes::handler(ctx, amount)
-    }
-
     // ──────────────────────────────────────────────
     // Campaign Factory
     // ──────────────────────────────────────────────
@@ -118,6 +113,11 @@ pub mod fydao {
     /// Emergency withdraw remaining funds (governance only)
     pub fn emergency_withdraw(ctx: Context<EmergencyWithdraw>, amount: u64) -> Result<()> {
         instructions::emergency_withdraw::handler(ctx, amount)
+    }
+
+    /// Donor clawback of their share of a drained campaign's escrow (M4)
+    pub fn claim_refund(ctx: Context<ClaimRefund>) -> Result<()> {
+        instructions::claim_refund::handler(ctx)
     }
 
     // ──────────────────────────────────────────────

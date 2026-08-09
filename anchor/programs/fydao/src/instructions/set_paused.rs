@@ -20,6 +20,8 @@ pub fn handler(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
     let dao_config = &mut ctx.accounts.dao_config;
     dao_config.paused = paused;
 
+    emit!(DaoPaused { paused });
+
     msg!("DAO pause state updated to: {}", paused);
     Ok(())
 }

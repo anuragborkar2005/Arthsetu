@@ -47,6 +47,14 @@ pub fn handler(ctx: Context<ApproveAndGoLive>) -> Result<()> {
     let campaign = &mut ctx.accounts.campaign;
     campaign.is_live = true;
 
+    emit!(ProposalExecuted {
+        proposal_id: proposal.proposal_id,
+    });
+    emit!(CampaignApproved {
+        campaign_id: campaign.campaign_id,
+        proposal_id: proposal.proposal_id,
+    });
+
     msg!("Campaign {} is now LIVE via proposal {}", campaign.campaign_id, proposal.proposal_id);
     Ok(())
 }

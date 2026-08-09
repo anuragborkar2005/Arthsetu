@@ -28,6 +28,9 @@ pub fn finalize_execution(proposal: &mut Proposal, clock: &Clock) -> Result<bool
 
     if clock.unix_timestamp > proposal.eta.saturating_add(MAX_EXECUTION_WINDOW) {
         proposal.state = ProposalState::Expired;
+        emit!(ProposalExpired {
+            proposal_id: proposal.proposal_id,
+        });
         msg!(
             "Proposal {} expired after the timelock execution window",
             proposal.proposal_id

@@ -50,6 +50,11 @@ pub fn handler(ctx: Context<TransferAuthority>) -> Result<()> {
     let dao_config = &mut ctx.accounts.dao_config;
     dao_config.pending_authority = new_authority;
 
+    emit!(ProposalExecuted {
+        proposal_id: proposal.proposal_id,
+    });
+    emit!(AuthorityNominated { new_authority });
+
     msg!(
         "DAO Authority transfer proposed by the DAO: pending authority set to {} via proposal {}",
         new_authority,
