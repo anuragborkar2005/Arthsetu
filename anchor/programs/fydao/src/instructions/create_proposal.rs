@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::TokenAccount;
+use anchor_spl::token::{Mint, TokenAccount};
 
 use crate::errors::FydaoError;
 use crate::state::*;
@@ -35,6 +35,11 @@ pub struct CreateProposal<'info> {
     )]
     pub proposer_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = governance_mint.key() == dao_config.governance_mint
+    )]
+    pub governance_mint: Account<'info, Mint>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -64,10 +69,8 @@ pub fn handler(
     let voting_delay = ctx.accounts.dao_config.voting_delay;
     let voting_period = ctx.accounts.dao_config.voting_period;
 
-    // Snapshot total supply roughly via proposer balance * some factor is not ideal.
-    // In production you would read mint.supply. For simplicity we store proposer's balance
-    // as a proxy; real systems use a snapshot of total votes.
-    let total_votes_snapshot = ctx.accounts.proposer_token_account.amount; // placeholder
+    // Snapshot total supply from governance mint for accurate quorum calculation
+    let total_votes_snapshot = ctx.accounts.governance_mint.supply;
 
     let proposal = &mut ctx.accounts.proposal;
     proposal.bump = ctx.bumps.proposal;

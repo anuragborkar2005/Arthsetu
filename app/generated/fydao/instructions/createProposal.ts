@@ -56,6 +56,7 @@ export type CreateProposalInstruction<
   TAccountDaoConfig extends string | AccountMeta<string> = string,
   TAccountProposal extends string | AccountMeta<string> = string,
   TAccountProposerTokenAccount extends string | AccountMeta<string> = string,
+  TAccountGovernanceMint extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -76,6 +77,9 @@ export type CreateProposalInstruction<
       TAccountProposerTokenAccount extends string
         ? ReadonlyAccount<TAccountProposerTokenAccount>
         : TAccountProposerTokenAccount,
+      TAccountGovernanceMint extends string
+        ? ReadonlyAccount<TAccountGovernanceMint>
+        : TAccountGovernanceMint,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -134,12 +138,14 @@ export type CreateProposalAsyncInput<
   TAccountDaoConfig extends string = string,
   TAccountProposal extends string = string,
   TAccountProposerTokenAccount extends string = string,
+  TAccountGovernanceMint extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   proposer: TransactionSigner<TAccountProposer>;
   daoConfig?: Address<TAccountDaoConfig>;
   proposal: Address<TAccountProposal>;
   proposerTokenAccount: Address<TAccountProposerTokenAccount>;
+  governanceMint: Address<TAccountGovernanceMint>;
   systemProgram?: Address<TAccountSystemProgram>;
   description: CreateProposalInstructionDataArgs["description"];
   instructionData: CreateProposalInstructionDataArgs["instructionData"];
@@ -150,6 +156,7 @@ export async function getCreateProposalInstructionAsync<
   TAccountDaoConfig extends string,
   TAccountProposal extends string,
   TAccountProposerTokenAccount extends string,
+  TAccountGovernanceMint extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
@@ -158,6 +165,7 @@ export async function getCreateProposalInstructionAsync<
     TAccountDaoConfig,
     TAccountProposal,
     TAccountProposerTokenAccount,
+    TAccountGovernanceMint,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -168,6 +176,7 @@ export async function getCreateProposalInstructionAsync<
     TAccountDaoConfig,
     TAccountProposal,
     TAccountProposerTokenAccount,
+    TAccountGovernanceMint,
     TAccountSystemProgram
   >
 > {
@@ -183,6 +192,7 @@ export async function getCreateProposalInstructionAsync<
       value: input.proposerTokenAccount ?? null,
       isWritable: false,
     },
+    governanceMint: { value: input.governanceMint ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -209,6 +219,7 @@ export async function getCreateProposalInstructionAsync<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.proposerTokenAccount),
+      getAccountMeta(accounts.governanceMint),
       getAccountMeta(accounts.systemProgram),
     ],
     data: getCreateProposalInstructionDataEncoder().encode(
@@ -221,6 +232,7 @@ export async function getCreateProposalInstructionAsync<
     TAccountDaoConfig,
     TAccountProposal,
     TAccountProposerTokenAccount,
+    TAccountGovernanceMint,
     TAccountSystemProgram
   >);
 }
@@ -230,12 +242,14 @@ export type CreateProposalInput<
   TAccountDaoConfig extends string = string,
   TAccountProposal extends string = string,
   TAccountProposerTokenAccount extends string = string,
+  TAccountGovernanceMint extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   proposer: TransactionSigner<TAccountProposer>;
   daoConfig: Address<TAccountDaoConfig>;
   proposal: Address<TAccountProposal>;
   proposerTokenAccount: Address<TAccountProposerTokenAccount>;
+  governanceMint: Address<TAccountGovernanceMint>;
   systemProgram?: Address<TAccountSystemProgram>;
   description: CreateProposalInstructionDataArgs["description"];
   instructionData: CreateProposalInstructionDataArgs["instructionData"];
@@ -246,6 +260,7 @@ export function getCreateProposalInstruction<
   TAccountDaoConfig extends string,
   TAccountProposal extends string,
   TAccountProposerTokenAccount extends string,
+  TAccountGovernanceMint extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
@@ -254,6 +269,7 @@ export function getCreateProposalInstruction<
     TAccountDaoConfig,
     TAccountProposal,
     TAccountProposerTokenAccount,
+    TAccountGovernanceMint,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -263,6 +279,7 @@ export function getCreateProposalInstruction<
   TAccountDaoConfig,
   TAccountProposal,
   TAccountProposerTokenAccount,
+  TAccountGovernanceMint,
   TAccountSystemProgram
 > {
   // Program address.
@@ -277,6 +294,7 @@ export function getCreateProposalInstruction<
       value: input.proposerTokenAccount ?? null,
       isWritable: false,
     },
+    governanceMint: { value: input.governanceMint ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -300,6 +318,7 @@ export function getCreateProposalInstruction<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.proposerTokenAccount),
+      getAccountMeta(accounts.governanceMint),
       getAccountMeta(accounts.systemProgram),
     ],
     data: getCreateProposalInstructionDataEncoder().encode(
@@ -312,6 +331,7 @@ export function getCreateProposalInstruction<
     TAccountDaoConfig,
     TAccountProposal,
     TAccountProposerTokenAccount,
+    TAccountGovernanceMint,
     TAccountSystemProgram
   >);
 }
@@ -326,7 +346,8 @@ export type ParsedCreateProposalInstruction<
     daoConfig: TAccountMetas[1];
     proposal: TAccountMetas[2];
     proposerTokenAccount: TAccountMetas[3];
-    systemProgram: TAccountMetas[4];
+    governanceMint: TAccountMetas[4];
+    systemProgram: TAccountMetas[5];
   };
   data: CreateProposalInstructionData;
 };
@@ -339,7 +360,7 @@ export function parseCreateProposalInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCreateProposalInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+  if (instruction.accounts.length < 6) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -356,6 +377,7 @@ export function parseCreateProposalInstruction<
       daoConfig: getNextAccount(),
       proposal: getNextAccount(),
       proposerTokenAccount: getNextAccount(),
+      governanceMint: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getCreateProposalInstructionDataDecoder().decode(instruction.data),
