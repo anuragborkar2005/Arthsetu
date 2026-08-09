@@ -24,14 +24,18 @@ pub struct EmergencyWithdraw<'info> {
     )]
     pub escrow_token_account: Account<'info, TokenAccount>,
 
-    /// Destination (usually a DAO treasury ATA)
-    #[account(mut)]
+    /// Destination must be the canonical DAO treasury token account
+    #[account(
+        mut,
+        constraint = destination.key() == dao_config.treasury @ FydaoError::InvalidAmount
+    )]
     pub destination: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
 }
 
 pub fn handler(ctx: Context<EmergencyWithdraw>, amount: u64) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     require!(amount > 0, FydaoError::InvalidAmount);
     require!(
         ctx.accounts.escrow_token_account.amount >= amount,
@@ -63,6 +67,6 @@ pub fn handler(ctx: Context<EmergencyWithdraw>, amount: u64) -> Result<()> {
 
     ctx.accounts.campaign.emergency_withdrawn = true;
 
-    msg!("Emergency withdraw of {} from campaign", amount);
+    msg!("Emergency withdraw of {} from campaign to treasury {}", amount, ctx.accounts.dao_config.treasury);
     Ok(())
 }
