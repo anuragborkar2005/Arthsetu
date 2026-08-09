@@ -27,13 +27,13 @@ pub fn handler(ctx: Context<CancelProposal>) -> Result<()> {
         FydaoError::OnlyAuthority
     );
 
-    require!(
-        matches!(
-            proposal.state,
-            ProposalState::Pending | ProposalState::Active | ProposalState::Succeeded | ProposalState::Queued
-        ),
-        FydaoError::InvalidProposalState
-    );
+    // Proposer can cancel in Pending/Active state; only DAO authority/guardian can cancel in Succeeded/Queued state
+    if matches!(proposal.state, ProposalState::Succeeded | ProposalState::Queued) {
+        require!(
+            ctx.accounts.authority.key() == ctx.accounts.dao_config.authority,
+            FydaoError::OnlyAuthority
+        );
+    }
 
     proposal.state = ProposalState::Canceled;
 
