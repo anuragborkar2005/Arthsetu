@@ -32,6 +32,7 @@ import {
   parseProposeMilestoneInstruction,
   parseQueueProposalInstruction,
   parseReleaseMilestoneInstruction,
+  parseSetPausedInstruction,
   parseTransferAuthorityInstruction,
   type ParsedApproveAndGoLiveInstruction,
   type ParsedCancelProposalInstruction,
@@ -48,6 +49,7 @@ import {
   type ParsedProposeMilestoneInstruction,
   type ParsedQueueProposalInstruction,
   type ParsedReleaseMilestoneInstruction,
+  type ParsedSetPausedInstruction,
   type ParsedTransferAuthorityInstruction,
 } from "../instructions";
 
@@ -154,6 +156,7 @@ export enum FydaoInstruction {
   ProposeMilestone,
   QueueProposal,
   ReleaseMilestone,
+  SetPaused,
   TransferAuthority,
 }
 
@@ -330,6 +333,17 @@ export function identifyFydaoInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([91, 60, 125, 192, 176, 225, 166, 218]),
+      ),
+      0,
+    )
+  ) {
+    return FydaoInstruction.SetPaused;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([48, 169, 76, 72, 229, 180, 55, 161]),
       ),
       0,
@@ -390,6 +404,9 @@ export type ParsedFydaoInstruction<
   | ({
       instructionType: FydaoInstruction.ReleaseMilestone;
     } & ParsedReleaseMilestoneInstruction<TProgram>)
+  | ({
+      instructionType: FydaoInstruction.SetPaused;
+    } & ParsedSetPausedInstruction<TProgram>)
   | ({
       instructionType: FydaoInstruction.TransferAuthority;
     } & ParsedTransferAuthorityInstruction<TProgram>);
@@ -502,6 +519,13 @@ export function parseFydaoInstruction<TProgram extends string>(
       return {
         instructionType: FydaoInstruction.ReleaseMilestone,
         ...parseReleaseMilestoneInstruction(instruction),
+      };
+    }
+    case FydaoInstruction.SetPaused: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: FydaoInstruction.SetPaused,
+        ...parseSetPausedInstruction(instruction),
       };
     }
     case FydaoInstruction.TransferAuthority: {

@@ -145,4 +145,9 @@ pub mod fydao {
     pub fn transfer_authority(ctx: Context<TransferAuthority>, new_authority: Pubkey) -> Result<()> {
         instructions::transfer_authority::handler(ctx, new_authority)
     }
+
+    /// Pause or unpause the DAO
+    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        instructions::set_paused::handler(ctx, paused)
+    }
 }
