@@ -32,13 +32,16 @@ pub struct MintGovernanceTokens<'info> {
     #[account(mut)]
     pub destination: Account<'info, TokenAccount>,
 
-    /// CHECK: mint authority (can be the authority signer or a PDA)
+    #[account(
+        constraint = mint_authority.key() == dao_config.authority @ FydaoError::OnlyAuthority
+    )]
     pub mint_authority: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
 }
 
 pub fn handler(ctx: Context<MintGovernanceTokens>, amount: u64) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     require!(amount > 0, FydaoError::InvalidAmount);
 
     let cpi_accounts = MintTo {
