@@ -4,7 +4,13 @@ Review scope: `anchor/programs/fydao` (Anchor 1.1.2, SPL Token). Status as of re
 
 **Re-verified against the latest code** (git `HEAD`). Since the initial review the following fixes landed and were confirmed:
 
-- `set_paused` instruction added and enforced across `donate`, `create_campaign`, `create_proposal`, and `release_milestone` (H6 **resolved**)
+- `create_proposal` reads `governance_mint.supply` for accurate quorum calculation (C2 **resolved**)
+- `execute_proposal` enforces 14-day timelock expiration window and transitions stale proposals to `Expired` (H3 **resolved**)
+- `cancel_proposal` restricts cancellation of `Queued` / `Succeeded` proposals to DAO authority/guardian only (H4 **resolved**)
+- `mint_governance_tokens` constrains `mint_authority` to `dao_config.authority` and checks pause state (H5 **resolved**)
+- `queue_proposal` uses `checked_*` arithmetic instead of saturating math (L1 **resolved**)
+- `cast_vote` cleaned up dead match arm and added pause check (L2 **resolved**)
+- `set_paused` instruction added and enforced across handlers (H6 **resolved**)
 - `queue_proposal` persists `Defeated` and returns `Ok(())` instead of reverting (H2 **resolved**)
 - `donate` and `release_milestone` reject after `emergency_withdrawn` with dedicated `EmergencyWithdrawn` error code (M6 & L6 **resolved**)
 - `initialize_dao` validates non-negative delays (`voting_delay >= 0`, `timelock_delay >= 0`) and positive quorum (H7 **resolved**)
@@ -17,15 +23,15 @@ Severity scale: Critical > High > Medium > Low.
 | # | Severity | Issue | Location | Status |
 |---|----------|-------|----------|--------|
 | C1 | Critical | Governance execution is a no-op | `execute_proposal.rs:47` | Open |
-| C2 | Critical | Vote weight = live balance; no supply snapshot; quorum denominator = proposer balance | `cast_vote.rs:67`, `create_proposal.rs:70`, `queue_proposal.rs:39` | Open |
+| C2 | Critical | Quorum snapshot using total mint supply | `create_proposal.rs:65` | **Resolved** |
 | C3 | Critical | Single EOA `dao_config.authority` can move all funds with no governance | `release_milestone.rs:15`, `approve_and_go_live.rs:14`, `emergency_withdraw.rs:11` | Open |
 | C4 | Critical | Timelock/governor not implemented; PDA "timelock" authority cannot sign | `transfer_authority.rs`, all `authority: Signer` constraints | Open |
 | C5 | Critical | Unlimited governance-token mint → governance capture / dilution | `mint_governance_tokens.rs` | Open |
 | H1 | High | `initialize_dao` front-running (attacker wins the one global PDA) | `initialize_dao.rs` | Open |
 | H2 | High | Failed quorum/vote reverted state; `Defeated` unreachable | `queue_proposal.rs:43-55` | **Resolved** |
-| H3 | High | Queued proposals never expire | `queue_proposal.rs:63` | Open |
-| H4 | High | Proposer can cancel a `Queued` proposal (griefing / blocks execution) | `cancel_proposal.rs:31-35` | Open |
-| H5 | High | `mint_authority` is a separate, unconstrained signer | `mint_governance_tokens.rs:36` | Open |
+| H3 | High | Expiration window enforced for queued proposals | `execute_proposal.rs:40` | **Resolved** |
+| H4 | High | Proposer can cancel a `Queued` proposal (griefing / blocks execution) | `cancel_proposal.rs:31-35` | **Resolved** |
+| H5 | High | `mint_authority` constrained to `dao_config.authority` | `mint_governance_tokens.rs:36` | **Resolved** |
 | H6 | High | Pause enforcement across handlers | `set_paused.rs`, `donate.rs`, `release_milestone.rs` | **Resolved** |
 | H7 | Medium | Negative/zero `voting_delay` / `timelock_delay` accepted | `initialize_dao.rs:40-41` | **Resolved** |
 | H8 | Medium | No on-chain integration tests (TS "tests" mutate local objects; Rust tests are unit-only) | `anchor/tests/*`, `anchor/programs/fydao/tests/*` | Open |
@@ -39,8 +45,8 @@ Severity scale: Critical > High > Medium > Low.
 | M8 | Medium | Program ID mismatch: placeholder `declare_id!` vs `Anchor.toml` `vault` ID | `lib.rs:9`, `Anchor.toml:8` | Open |
 | M9 | Medium | Single-step authority transfer, no confirmation | `transfer_authority.rs:19-30` | **Partial** |
 | M10 | Medium | Governance mint authority not program-controlled, never revoked | `mint_governance_tokens.rs` | Open |
-| L1 | Low | `saturating_*` silently masks overflow in quorum/arithmetic | `queue_proposal.rs:33-41` | Open |
-| L2 | Low | Dead `_ => return err!` arm after `support <= 2` guard | `cast_vote.rs:44,89` | Open |
+| L1 | Low | Checked arithmetic used for quorum and vote calculations | `queue_proposal.rs:33-41` | **Resolved** |
+| L2 | Low | Dead code removed from `cast_vote` | `cast_vote.rs:80` | **Resolved** |
 | L3 | Low | Only `msg!` logs; no Anchor events / IDL events | all handlers | Open |
 | L4 | Low | No `close`/rent-reclaim for PDAs; rent locked | — | Open |
 | L5 | Low | `trust_score` unvalidated arbitrary value | `create_campaign.rs:56` | Open |
