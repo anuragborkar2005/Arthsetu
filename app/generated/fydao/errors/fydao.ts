@@ -72,6 +72,8 @@ export const FYDAO_ERROR__ACTION_MISMATCH = 0x178a; // 6026
 export const FYDAO_ERROR__ONLY_GENESIS = 0x178b; // 6027
 /** InvalidMintAuthority: Current signer is not the governance mint's mint authority */
 export const FYDAO_ERROR__INVALID_MINT_AUTHORITY = 0x178c; // 6028
+/** RefundNotAvailable: Refunds are only available after the campaign has been drained */
+export const FYDAO_ERROR__REFUND_NOT_AVAILABLE = 0x178d; // 6029
 
 export type FydaoError =
   | typeof FYDAO_ERROR__ACTION_MISMATCH
@@ -98,6 +100,7 @@ export type FydaoError =
   | typeof FYDAO_ERROR__PROPOSAL_DID_NOT_PASS
   | typeof FYDAO_ERROR__PROPOSAL_THRESHOLD_NOT_MET
   | typeof FYDAO_ERROR__QUORUM_NOT_REACHED
+  | typeof FYDAO_ERROR__REFUND_NOT_AVAILABLE
   | typeof FYDAO_ERROR__TIMELOCK_NOT_EXPIRED
   | typeof FYDAO_ERROR__VOTES_STILL_LOCKED
   | typeof FYDAO_ERROR__VOTING_ENDED
@@ -131,6 +134,7 @@ if (process.env.NODE_ENV !== "production") {
     [FYDAO_ERROR__PROPOSAL_DID_NOT_PASS]: `Proposal did not pass`,
     [FYDAO_ERROR__PROPOSAL_THRESHOLD_NOT_MET]: `Proposal threshold not met`,
     [FYDAO_ERROR__QUORUM_NOT_REACHED]: `Quorum not reached`,
+    [FYDAO_ERROR__REFUND_NOT_AVAILABLE]: `Refunds are only available after the campaign has been drained`,
     [FYDAO_ERROR__TIMELOCK_NOT_EXPIRED]: `Timelock delay has not passed yet`,
     [FYDAO_ERROR__VOTES_STILL_LOCKED]: `Voting power is still locked until the proposal reaches a final state`,
     [FYDAO_ERROR__VOTING_ENDED]: `Voting period has ended`,

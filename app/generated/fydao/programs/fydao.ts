@@ -21,9 +21,9 @@ import {
   parseApproveAndGoLiveInstruction,
   parseCancelProposalInstruction,
   parseCastVoteInstruction,
+  parseClaimRefundInstruction,
   parseCreateCampaignInstruction,
   parseCreateProposalInstruction,
-  parseDelegateVotesInstruction,
   parseDonateInstruction,
   parseEmergencyWithdrawInstruction,
   parseInitializeDaoInstruction,
@@ -39,9 +39,9 @@ import {
   type ParsedApproveAndGoLiveInstruction,
   type ParsedCancelProposalInstruction,
   type ParsedCastVoteInstruction,
+  type ParsedClaimRefundInstruction,
   type ParsedCreateCampaignInstruction,
   type ParsedCreateProposalInstruction,
-  type ParsedDelegateVotesInstruction,
   type ParsedDonateInstruction,
   type ParsedEmergencyWithdrawInstruction,
   type ParsedInitializeDaoInstruction,
@@ -61,6 +61,7 @@ export const FYDAO_PROGRAM_ADDRESS =
 export enum FydaoAccount {
   Campaign,
   DaoConfig,
+  DonationRecord,
   GovernanceTokenState,
   Milestone,
   Proposal,
@@ -92,6 +93,17 @@ export function identifyFydaoAccount(
     )
   ) {
     return FydaoAccount.DaoConfig;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([219, 64, 180, 111, 72, 70, 71, 0]),
+      ),
+      0,
+    )
+  ) {
+    return FydaoAccount.DonationRecord;
   }
   if (
     containsBytes(
@@ -147,9 +159,9 @@ export enum FydaoInstruction {
   ApproveAndGoLive,
   CancelProposal,
   CastVote,
+  ClaimRefund,
   CreateCampaign,
   CreateProposal,
-  DelegateVotes,
   Donate,
   EmergencyWithdraw,
   InitializeDao,
@@ -215,6 +227,17 @@ export function identifyFydaoInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([15, 16, 30, 161, 255, 228, 97, 60]),
+      ),
+      0,
+    )
+  ) {
+    return FydaoInstruction.ClaimRefund;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([111, 131, 187, 98, 160, 193, 114, 244]),
       ),
       0,
@@ -232,17 +255,6 @@ export function identifyFydaoInstruction(
     )
   ) {
     return FydaoInstruction.CreateProposal;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([134, 214, 180, 254, 134, 143, 185, 247]),
-      ),
-      0,
-    )
-  ) {
-    return FydaoInstruction.DelegateVotes;
   }
   if (
     containsBytes(
@@ -386,14 +398,14 @@ export type ParsedFydaoInstruction<
       instructionType: FydaoInstruction.CastVote;
     } & ParsedCastVoteInstruction<TProgram>)
   | ({
+      instructionType: FydaoInstruction.ClaimRefund;
+    } & ParsedClaimRefundInstruction<TProgram>)
+  | ({
       instructionType: FydaoInstruction.CreateCampaign;
     } & ParsedCreateCampaignInstruction<TProgram>)
   | ({
       instructionType: FydaoInstruction.CreateProposal;
     } & ParsedCreateProposalInstruction<TProgram>)
-  | ({
-      instructionType: FydaoInstruction.DelegateVotes;
-    } & ParsedDelegateVotesInstruction<TProgram>)
   | ({
       instructionType: FydaoInstruction.Donate;
     } & ParsedDonateInstruction<TProgram>)
@@ -461,6 +473,13 @@ export function parseFydaoInstruction<TProgram extends string>(
         ...parseCastVoteInstruction(instruction),
       };
     }
+    case FydaoInstruction.ClaimRefund: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: FydaoInstruction.ClaimRefund,
+        ...parseClaimRefundInstruction(instruction),
+      };
+    }
     case FydaoInstruction.CreateCampaign: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -473,13 +492,6 @@ export function parseFydaoInstruction<TProgram extends string>(
       return {
         instructionType: FydaoInstruction.CreateProposal,
         ...parseCreateProposalInstruction(instruction),
-      };
-    }
-    case FydaoInstruction.DelegateVotes: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: FydaoInstruction.DelegateVotes,
-        ...parseDelegateVotesInstruction(instruction),
       };
     }
     case FydaoInstruction.Donate: {

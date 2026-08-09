@@ -63,6 +63,9 @@ export type InitializeGovernanceTokenInstruction<
   TAccountGovernanceMint extends string | AccountMeta<string> = string,
   TAccountMintAuthorityPda extends string | AccountMeta<string> = string,
   TAccountCurrentMintAuthority extends string | AccountMeta<string> = string,
+  TAccountTokenMetadataProgram extends string | AccountMeta<string> =
+    "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
+  TAccountMetadata extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TAccountTokenProgram extends string | AccountMeta<string> =
@@ -94,6 +97,12 @@ export type InitializeGovernanceTokenInstruction<
         ? ReadonlySignerAccount<TAccountCurrentMintAuthority> &
             AccountSignerMeta<TAccountCurrentMintAuthority>
         : TAccountCurrentMintAuthority,
+      TAccountTokenMetadataProgram extends string
+        ? ReadonlyAccount<TAccountTokenMetadataProgram>
+        : TAccountTokenMetadataProgram,
+      TAccountMetadata extends string
+        ? ReadonlyAccount<TAccountMetadata>
+        : TAccountMetadata,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -161,6 +170,8 @@ export type InitializeGovernanceTokenAsyncInput<
   TAccountGovernanceMint extends string = string,
   TAccountMintAuthorityPda extends string = string,
   TAccountCurrentMintAuthority extends string = string,
+  TAccountTokenMetadataProgram extends string = string,
+  TAccountMetadata extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountRent extends string = string,
@@ -173,10 +184,21 @@ export type InitializeGovernanceTokenAsyncInput<
   /**
    * Program PDA that becomes the governance mint's sole MintTo authority,
    * so minting can only happen through the program (C5/M10).
+   * metadata update authority (address validated in the handler)
    */
   mintAuthorityPda?: Address<TAccountMintAuthorityPda>;
   /** Current mint authority of `governance_mint`; must transfer it to the PDA */
   currentMintAuthority: TransactionSigner<TAccountCurrentMintAuthority>;
+  /**
+   * Metaplex Token Metadata program (M1): gives the governance token a real
+   * on-chain metadata record, honoring the `name`/`symbol`/`uri` args.
+   */
+  tokenMetadataProgram?: Address<TAccountTokenMetadataProgram>;
+  /**
+   * Metaplex metadata PDA for the governance mint
+   * Seeds: ["metadata", MPL_TOKEN_METADATA, mint]
+   */
+  metadata: Address<TAccountMetadata>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
   rent?: Address<TAccountRent>;
@@ -192,6 +214,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
   TAccountGovernanceMint extends string,
   TAccountMintAuthorityPda extends string,
   TAccountCurrentMintAuthority extends string,
+  TAccountTokenMetadataProgram extends string,
+  TAccountMetadata extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
   TAccountRent extends string,
@@ -204,6 +228,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     TAccountGovernanceMint,
     TAccountMintAuthorityPda,
     TAccountCurrentMintAuthority,
+    TAccountTokenMetadataProgram,
+    TAccountMetadata,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -218,6 +244,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     TAccountGovernanceMint,
     TAccountMintAuthorityPda,
     TAccountCurrentMintAuthority,
+    TAccountTokenMetadataProgram,
+    TAccountMetadata,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -240,6 +268,11 @@ export async function getInitializeGovernanceTokenInstructionAsync<
       value: input.currentMintAuthority ?? null,
       isWritable: false,
     },
+    tokenMetadataProgram: {
+      value: input.tokenMetadataProgram ?? null,
+      isWritable: false,
+    },
+    metadata: { value: input.metadata ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },
@@ -262,6 +295,10 @@ export async function getInitializeGovernanceTokenInstructionAsync<
   if (!accounts.mintAuthorityPda.value) {
     accounts.mintAuthorityPda.value = await findMintAuthorityPdaPda();
   }
+  if (!accounts.tokenMetadataProgram.value) {
+    accounts.tokenMetadataProgram.value =
+      "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" as Address<"metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s">;
+  }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
@@ -284,6 +321,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
       getAccountMeta(accounts.governanceMint),
       getAccountMeta(accounts.mintAuthorityPda),
       getAccountMeta(accounts.currentMintAuthority),
+      getAccountMeta(accounts.tokenMetadataProgram),
+      getAccountMeta(accounts.metadata),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.rent),
@@ -300,6 +339,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     TAccountGovernanceMint,
     TAccountMintAuthorityPda,
     TAccountCurrentMintAuthority,
+    TAccountTokenMetadataProgram,
+    TAccountMetadata,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -313,6 +354,8 @@ export type InitializeGovernanceTokenInput<
   TAccountGovernanceMint extends string = string,
   TAccountMintAuthorityPda extends string = string,
   TAccountCurrentMintAuthority extends string = string,
+  TAccountTokenMetadataProgram extends string = string,
+  TAccountMetadata extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountRent extends string = string,
@@ -325,10 +368,21 @@ export type InitializeGovernanceTokenInput<
   /**
    * Program PDA that becomes the governance mint's sole MintTo authority,
    * so minting can only happen through the program (C5/M10).
+   * metadata update authority (address validated in the handler)
    */
   mintAuthorityPda: Address<TAccountMintAuthorityPda>;
   /** Current mint authority of `governance_mint`; must transfer it to the PDA */
   currentMintAuthority: TransactionSigner<TAccountCurrentMintAuthority>;
+  /**
+   * Metaplex Token Metadata program (M1): gives the governance token a real
+   * on-chain metadata record, honoring the `name`/`symbol`/`uri` args.
+   */
+  tokenMetadataProgram?: Address<TAccountTokenMetadataProgram>;
+  /**
+   * Metaplex metadata PDA for the governance mint
+   * Seeds: ["metadata", MPL_TOKEN_METADATA, mint]
+   */
+  metadata: Address<TAccountMetadata>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
   rent?: Address<TAccountRent>;
@@ -344,6 +398,8 @@ export function getInitializeGovernanceTokenInstruction<
   TAccountGovernanceMint extends string,
   TAccountMintAuthorityPda extends string,
   TAccountCurrentMintAuthority extends string,
+  TAccountTokenMetadataProgram extends string,
+  TAccountMetadata extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
   TAccountRent extends string,
@@ -356,6 +412,8 @@ export function getInitializeGovernanceTokenInstruction<
     TAccountGovernanceMint,
     TAccountMintAuthorityPda,
     TAccountCurrentMintAuthority,
+    TAccountTokenMetadataProgram,
+    TAccountMetadata,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -369,6 +427,8 @@ export function getInitializeGovernanceTokenInstruction<
   TAccountGovernanceMint,
   TAccountMintAuthorityPda,
   TAccountCurrentMintAuthority,
+  TAccountTokenMetadataProgram,
+  TAccountMetadata,
   TAccountSystemProgram,
   TAccountTokenProgram,
   TAccountRent
@@ -390,6 +450,11 @@ export function getInitializeGovernanceTokenInstruction<
       value: input.currentMintAuthority ?? null,
       isWritable: false,
     },
+    tokenMetadataProgram: {
+      value: input.tokenMetadataProgram ?? null,
+      isWritable: false,
+    },
+    metadata: { value: input.metadata ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },
@@ -403,6 +468,10 @@ export function getInitializeGovernanceTokenInstruction<
   const args = { ...input };
 
   // Resolve default values.
+  if (!accounts.tokenMetadataProgram.value) {
+    accounts.tokenMetadataProgram.value =
+      "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" as Address<"metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s">;
+  }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
@@ -425,6 +494,8 @@ export function getInitializeGovernanceTokenInstruction<
       getAccountMeta(accounts.governanceMint),
       getAccountMeta(accounts.mintAuthorityPda),
       getAccountMeta(accounts.currentMintAuthority),
+      getAccountMeta(accounts.tokenMetadataProgram),
+      getAccountMeta(accounts.metadata),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.rent),
@@ -441,6 +512,8 @@ export function getInitializeGovernanceTokenInstruction<
     TAccountGovernanceMint,
     TAccountMintAuthorityPda,
     TAccountCurrentMintAuthority,
+    TAccountTokenMetadataProgram,
+    TAccountMetadata,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -461,13 +534,24 @@ export type ParsedInitializeGovernanceTokenInstruction<
     /**
      * Program PDA that becomes the governance mint's sole MintTo authority,
      * so minting can only happen through the program (C5/M10).
+     * metadata update authority (address validated in the handler)
      */
     mintAuthorityPda: TAccountMetas[4];
     /** Current mint authority of `governance_mint`; must transfer it to the PDA */
     currentMintAuthority: TAccountMetas[5];
-    systemProgram: TAccountMetas[6];
-    tokenProgram: TAccountMetas[7];
-    rent: TAccountMetas[8];
+    /**
+     * Metaplex Token Metadata program (M1): gives the governance token a real
+     * on-chain metadata record, honoring the `name`/`symbol`/`uri` args.
+     */
+    tokenMetadataProgram: TAccountMetas[6];
+    /**
+     * Metaplex metadata PDA for the governance mint
+     * Seeds: ["metadata", MPL_TOKEN_METADATA, mint]
+     */
+    metadata: TAccountMetas[7];
+    systemProgram: TAccountMetas[8];
+    tokenProgram: TAccountMetas[9];
+    rent: TAccountMetas[10];
   };
   data: InitializeGovernanceTokenInstructionData;
 };
@@ -480,7 +564,7 @@ export function parseInitializeGovernanceTokenInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeGovernanceTokenInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 9) {
+  if (instruction.accounts.length < 11) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -499,6 +583,8 @@ export function parseInitializeGovernanceTokenInstruction<
       governanceMint: getNextAccount(),
       mintAuthorityPda: getNextAccount(),
       currentMintAuthority: getNextAccount(),
+      tokenMetadataProgram: getNextAccount(),
+      metadata: getNextAccount(),
       systemProgram: getNextAccount(),
       tokenProgram: getNextAccount(),
       rent: getNextAccount(),

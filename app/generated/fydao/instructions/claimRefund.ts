@@ -14,8 +14,6 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU64Decoder,
-  getU64Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -40,26 +38,26 @@ import {
   type ResolvedAccount,
 } from "../shared";
 
-export const DONATE_DISCRIMINATOR = new Uint8Array([
-  121, 186, 218, 211, 73, 70, 196, 180,
+export const CLAIM_REFUND_DISCRIMINATOR = new Uint8Array([
+  15, 16, 30, 161, 255, 228, 97, 60,
 ]);
 
-export function getDonateDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(DONATE_DISCRIMINATOR);
+export function getClaimRefundDiscriminatorBytes() {
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    CLAIM_REFUND_DISCRIMINATOR,
+  );
 }
 
-export type DonateInstruction<
+export type ClaimRefundInstruction<
   TProgram extends string = typeof FYDAO_PROGRAM_ADDRESS,
   TAccountDonor extends string | AccountMeta<string> = string,
   TAccountDaoConfig extends string | AccountMeta<string> = string,
   TAccountCampaign extends string | AccountMeta<string> = string,
-  TAccountDonorTokenAccount extends string | AccountMeta<string> = string,
   TAccountDonationRecord extends string | AccountMeta<string> = string,
   TAccountEscrowTokenAccount extends string | AccountMeta<string> = string,
+  TAccountDonorTokenAccount extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  TAccountSystemProgram extends string | AccountMeta<string> =
-    "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -75,114 +73,97 @@ export type DonateInstruction<
       TAccountCampaign extends string
         ? WritableAccount<TAccountCampaign>
         : TAccountCampaign,
-      TAccountDonorTokenAccount extends string
-        ? WritableAccount<TAccountDonorTokenAccount>
-        : TAccountDonorTokenAccount,
       TAccountDonationRecord extends string
         ? WritableAccount<TAccountDonationRecord>
         : TAccountDonationRecord,
       TAccountEscrowTokenAccount extends string
         ? WritableAccount<TAccountEscrowTokenAccount>
         : TAccountEscrowTokenAccount,
+      TAccountDonorTokenAccount extends string
+        ? WritableAccount<TAccountDonorTokenAccount>
+        : TAccountDonorTokenAccount,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
-      TAccountSystemProgram extends string
-        ? ReadonlyAccount<TAccountSystemProgram>
-        : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
   >;
 
-export type DonateInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  amount: bigint;
-};
+export type ClaimRefundInstructionData = { discriminator: ReadonlyUint8Array };
 
-export type DonateInstructionDataArgs = { amount: number | bigint };
+export type ClaimRefundInstructionDataArgs = {};
 
-export function getDonateInstructionDataEncoder(): FixedSizeEncoder<DonateInstructionDataArgs> {
+export function getClaimRefundInstructionDataEncoder(): FixedSizeEncoder<ClaimRefundInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["amount", getU64Encoder()],
-    ]),
-    (value) => ({ ...value, discriminator: DONATE_DISCRIMINATOR }),
+    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
+    (value) => ({ ...value, discriminator: CLAIM_REFUND_DISCRIMINATOR }),
   );
 }
 
-export function getDonateInstructionDataDecoder(): FixedSizeDecoder<DonateInstructionData> {
+export function getClaimRefundInstructionDataDecoder(): FixedSizeDecoder<ClaimRefundInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["amount", getU64Decoder()],
   ]);
 }
 
-export function getDonateInstructionDataCodec(): FixedSizeCodec<
-  DonateInstructionDataArgs,
-  DonateInstructionData
+export function getClaimRefundInstructionDataCodec(): FixedSizeCodec<
+  ClaimRefundInstructionDataArgs,
+  ClaimRefundInstructionData
 > {
   return combineCodec(
-    getDonateInstructionDataEncoder(),
-    getDonateInstructionDataDecoder(),
+    getClaimRefundInstructionDataEncoder(),
+    getClaimRefundInstructionDataDecoder(),
   );
 }
 
-export type DonateAsyncInput<
+export type ClaimRefundAsyncInput<
   TAccountDonor extends string = string,
   TAccountDaoConfig extends string = string,
   TAccountCampaign extends string = string,
-  TAccountDonorTokenAccount extends string = string,
   TAccountDonationRecord extends string = string,
   TAccountEscrowTokenAccount extends string = string,
+  TAccountDonorTokenAccount extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountSystemProgram extends string = string,
 > = {
   donor: TransactionSigner<TAccountDonor>;
   daoConfig?: Address<TAccountDaoConfig>;
   campaign: Address<TAccountCampaign>;
-  donorTokenAccount: Address<TAccountDonorTokenAccount>;
-  /** Per-donor contribution record, used to claw back funds after a drain */
   donationRecord?: Address<TAccountDonationRecord>;
   escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
+  donorTokenAccount: Address<TAccountDonorTokenAccount>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  amount: DonateInstructionDataArgs["amount"];
 };
 
-export async function getDonateInstructionAsync<
+export async function getClaimRefundInstructionAsync<
   TAccountDonor extends string,
   TAccountDaoConfig extends string,
   TAccountCampaign extends string,
-  TAccountDonorTokenAccount extends string,
   TAccountDonationRecord extends string,
   TAccountEscrowTokenAccount extends string,
+  TAccountDonorTokenAccount extends string,
   TAccountTokenProgram extends string,
-  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
-  input: DonateAsyncInput<
+  input: ClaimRefundAsyncInput<
     TAccountDonor,
     TAccountDaoConfig,
     TAccountCampaign,
-    TAccountDonorTokenAccount,
     TAccountDonationRecord,
     TAccountEscrowTokenAccount,
-    TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountDonorTokenAccount,
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  DonateInstruction<
+  ClaimRefundInstruction<
     TProgramAddress,
     TAccountDonor,
     TAccountDaoConfig,
     TAccountCampaign,
-    TAccountDonorTokenAccount,
     TAccountDonationRecord,
     TAccountEscrowTokenAccount,
-    TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountDonorTokenAccount,
+    TAccountTokenProgram
   >
 > {
   // Program address.
@@ -193,25 +174,21 @@ export async function getDonateInstructionAsync<
     donor: { value: input.donor ?? null, isWritable: true },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     campaign: { value: input.campaign ?? null, isWritable: true },
-    donorTokenAccount: {
-      value: input.donorTokenAccount ?? null,
-      isWritable: true,
-    },
     donationRecord: { value: input.donationRecord ?? null, isWritable: true },
     escrowTokenAccount: {
       value: input.escrowTokenAccount ?? null,
       isWritable: true,
     },
+    donorTokenAccount: {
+      value: input.donorTokenAccount ?? null,
+      isWritable: true,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
-
-  // Original args.
-  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.daoConfig.value) {
@@ -227,10 +204,6 @@ export async function getDonateInstructionAsync<
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
-  if (!accounts.systemProgram.value) {
-    accounts.systemProgram.value =
-      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
-  }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
@@ -238,83 +211,72 @@ export async function getDonateInstructionAsync<
       getAccountMeta(accounts.donor),
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.campaign),
-      getAccountMeta(accounts.donorTokenAccount),
       getAccountMeta(accounts.donationRecord),
       getAccountMeta(accounts.escrowTokenAccount),
+      getAccountMeta(accounts.donorTokenAccount),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.systemProgram),
     ],
-    data: getDonateInstructionDataEncoder().encode(
-      args as DonateInstructionDataArgs,
-    ),
+    data: getClaimRefundInstructionDataEncoder().encode({}),
     programAddress,
-  } as DonateInstruction<
+  } as ClaimRefundInstruction<
     TProgramAddress,
     TAccountDonor,
     TAccountDaoConfig,
     TAccountCampaign,
-    TAccountDonorTokenAccount,
     TAccountDonationRecord,
     TAccountEscrowTokenAccount,
-    TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountDonorTokenAccount,
+    TAccountTokenProgram
   >);
 }
 
-export type DonateInput<
+export type ClaimRefundInput<
   TAccountDonor extends string = string,
   TAccountDaoConfig extends string = string,
   TAccountCampaign extends string = string,
-  TAccountDonorTokenAccount extends string = string,
   TAccountDonationRecord extends string = string,
   TAccountEscrowTokenAccount extends string = string,
+  TAccountDonorTokenAccount extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountSystemProgram extends string = string,
 > = {
   donor: TransactionSigner<TAccountDonor>;
   daoConfig: Address<TAccountDaoConfig>;
   campaign: Address<TAccountCampaign>;
-  donorTokenAccount: Address<TAccountDonorTokenAccount>;
-  /** Per-donor contribution record, used to claw back funds after a drain */
   donationRecord: Address<TAccountDonationRecord>;
   escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
+  donorTokenAccount: Address<TAccountDonorTokenAccount>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  amount: DonateInstructionDataArgs["amount"];
 };
 
-export function getDonateInstruction<
+export function getClaimRefundInstruction<
   TAccountDonor extends string,
   TAccountDaoConfig extends string,
   TAccountCampaign extends string,
-  TAccountDonorTokenAccount extends string,
   TAccountDonationRecord extends string,
   TAccountEscrowTokenAccount extends string,
+  TAccountDonorTokenAccount extends string,
   TAccountTokenProgram extends string,
-  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
-  input: DonateInput<
+  input: ClaimRefundInput<
     TAccountDonor,
     TAccountDaoConfig,
     TAccountCampaign,
-    TAccountDonorTokenAccount,
     TAccountDonationRecord,
     TAccountEscrowTokenAccount,
-    TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountDonorTokenAccount,
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): DonateInstruction<
+): ClaimRefundInstruction<
   TProgramAddress,
   TAccountDonor,
   TAccountDaoConfig,
   TAccountCampaign,
-  TAccountDonorTokenAccount,
   TAccountDonationRecord,
   TAccountEscrowTokenAccount,
-  TAccountTokenProgram,
-  TAccountSystemProgram
+  TAccountDonorTokenAccount,
+  TAccountTokenProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? FYDAO_PROGRAM_ADDRESS;
@@ -324,34 +286,26 @@ export function getDonateInstruction<
     donor: { value: input.donor ?? null, isWritable: true },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     campaign: { value: input.campaign ?? null, isWritable: true },
-    donorTokenAccount: {
-      value: input.donorTokenAccount ?? null,
-      isWritable: true,
-    },
     donationRecord: { value: input.donationRecord ?? null, isWritable: true },
     escrowTokenAccount: {
       value: input.escrowTokenAccount ?? null,
       isWritable: true,
     },
+    donorTokenAccount: {
+      value: input.donorTokenAccount ?? null,
+      isWritable: true,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   // Resolve default values.
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
-  }
-  if (!accounts.systemProgram.value) {
-    accounts.systemProgram.value =
-      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
@@ -360,30 +314,26 @@ export function getDonateInstruction<
       getAccountMeta(accounts.donor),
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.campaign),
-      getAccountMeta(accounts.donorTokenAccount),
       getAccountMeta(accounts.donationRecord),
       getAccountMeta(accounts.escrowTokenAccount),
+      getAccountMeta(accounts.donorTokenAccount),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.systemProgram),
     ],
-    data: getDonateInstructionDataEncoder().encode(
-      args as DonateInstructionDataArgs,
-    ),
+    data: getClaimRefundInstructionDataEncoder().encode({}),
     programAddress,
-  } as DonateInstruction<
+  } as ClaimRefundInstruction<
     TProgramAddress,
     TAccountDonor,
     TAccountDaoConfig,
     TAccountCampaign,
-    TAccountDonorTokenAccount,
     TAccountDonationRecord,
     TAccountEscrowTokenAccount,
-    TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountDonorTokenAccount,
+    TAccountTokenProgram
   >);
 }
 
-export type ParsedDonateInstruction<
+export type ParsedClaimRefundInstruction<
   TProgram extends string = typeof FYDAO_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -392,25 +342,23 @@ export type ParsedDonateInstruction<
     donor: TAccountMetas[0];
     daoConfig: TAccountMetas[1];
     campaign: TAccountMetas[2];
-    donorTokenAccount: TAccountMetas[3];
-    /** Per-donor contribution record, used to claw back funds after a drain */
-    donationRecord: TAccountMetas[4];
-    escrowTokenAccount: TAccountMetas[5];
+    donationRecord: TAccountMetas[3];
+    escrowTokenAccount: TAccountMetas[4];
+    donorTokenAccount: TAccountMetas[5];
     tokenProgram: TAccountMetas[6];
-    systemProgram: TAccountMetas[7];
   };
-  data: DonateInstructionData;
+  data: ClaimRefundInstructionData;
 };
 
-export function parseDonateInstruction<
+export function parseClaimRefundInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedDonateInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+): ParsedClaimRefundInstruction<TProgram, TAccountMetas> {
+  if (instruction.accounts.length < 7) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -426,12 +374,11 @@ export function parseDonateInstruction<
       donor: getNextAccount(),
       daoConfig: getNextAccount(),
       campaign: getNextAccount(),
-      donorTokenAccount: getNextAccount(),
       donationRecord: getNextAccount(),
       escrowTokenAccount: getNextAccount(),
+      donorTokenAccount: getNextAccount(),
       tokenProgram: getNextAccount(),
-      systemProgram: getNextAccount(),
     },
-    data: getDonateInstructionDataDecoder().decode(instruction.data),
+    data: getClaimRefundInstructionDataDecoder().decode(instruction.data),
   };
 }

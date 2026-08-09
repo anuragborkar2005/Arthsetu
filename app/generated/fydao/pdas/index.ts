@@ -7,6 +7,7 @@
  */
 
 export * from "./daoConfig";
+export * from "./donationRecord";
 export * from "./govTokenState";
 export * from "./mintAuthorityPda";
 export * from "./voteEscrow";

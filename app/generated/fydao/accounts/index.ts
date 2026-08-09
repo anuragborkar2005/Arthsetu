@@ -8,6 +8,7 @@
 
 export * from "./campaign";
 export * from "./daoConfig";
+export * from "./donationRecord";
 export * from "./governanceTokenState";
 export * from "./milestone";
 export * from "./proposal";
