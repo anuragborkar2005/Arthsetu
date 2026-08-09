@@ -24,6 +24,7 @@ pub struct ExecuteProposal<'info> {
 }
 
 pub fn handler(ctx: Context<ExecuteProposal>) -> Result<()> {
+    require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     let clock = Clock::get()?;
     let proposal = &mut ctx.accounts.proposal;
 
@@ -36,6 +37,14 @@ pub fn handler(ctx: Context<ExecuteProposal>) -> Result<()> {
         FydaoError::TimelockNotExpired
     );
     require!(!proposal.executed, FydaoError::InvalidProposalState);
+
+    // Expire proposals if 14 days have passed after ETA
+    let max_expiry_window: i64 = 14 * 86400; // 14 days
+    if clock.unix_timestamp > proposal.eta.saturating_add(max_expiry_window) {
+        proposal.state = ProposalState::Expired;
+        msg!("Proposal {} expired after timelock window", proposal.proposal_id);
+        return err!(FydaoError::TimelockNotExpired);
+    }
 
     // In a full implementation the instruction_data would be decoded
     // and the corresponding CPI / internal call would be made.
