@@ -39,6 +39,12 @@ import {
 import { findDaoConfigPda } from "../pdas";
 import { FYDAO_PROGRAM_ADDRESS } from "../programs";
 import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
+import {
+  getProposalActionDecoder,
+  getProposalActionEncoder,
+  type ProposalAction,
+  type ProposalActionArgs,
+} from "../types";
 
 export const CREATE_PROPOSAL_DISCRIMINATOR = new Uint8Array([
   132, 116, 68, 174, 216, 160, 198, 22,
@@ -90,12 +96,12 @@ export type CreateProposalInstruction<
 export type CreateProposalInstructionData = {
   discriminator: ReadonlyUint8Array;
   description: string;
-  instructionData: ReadonlyUint8Array;
+  action: ProposalAction;
 };
 
 export type CreateProposalInstructionDataArgs = {
   description: string;
-  instructionData: ReadonlyUint8Array;
+  action: ProposalActionArgs;
 };
 
 export function getCreateProposalInstructionDataEncoder(): Encoder<CreateProposalInstructionDataArgs> {
@@ -103,10 +109,7 @@ export function getCreateProposalInstructionDataEncoder(): Encoder<CreateProposa
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["description", addEncoderSizePrefix(getUtf8Encoder(), getU32Encoder())],
-      [
-        "instructionData",
-        addEncoderSizePrefix(getBytesEncoder(), getU32Encoder()),
-      ],
+      ["action", getProposalActionEncoder()],
     ]),
     (value) => ({ ...value, discriminator: CREATE_PROPOSAL_DISCRIMINATOR }),
   );
@@ -116,10 +119,7 @@ export function getCreateProposalInstructionDataDecoder(): Decoder<CreateProposa
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["description", addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder())],
-    [
-      "instructionData",
-      addDecoderSizePrefix(getBytesDecoder(), getU32Decoder()),
-    ],
+    ["action", getProposalActionDecoder()],
   ]);
 }
 
@@ -148,7 +148,7 @@ export type CreateProposalAsyncInput<
   governanceMint: Address<TAccountGovernanceMint>;
   systemProgram?: Address<TAccountSystemProgram>;
   description: CreateProposalInstructionDataArgs["description"];
-  instructionData: CreateProposalInstructionDataArgs["instructionData"];
+  action: CreateProposalInstructionDataArgs["action"];
 };
 
 export async function getCreateProposalInstructionAsync<
@@ -252,7 +252,7 @@ export type CreateProposalInput<
   governanceMint: Address<TAccountGovernanceMint>;
   systemProgram?: Address<TAccountSystemProgram>;
   description: CreateProposalInstructionDataArgs["description"];
-  instructionData: CreateProposalInstructionDataArgs["instructionData"];
+  action: CreateProposalInstructionDataArgs["action"];
 };
 
 export function getCreateProposalInstruction<

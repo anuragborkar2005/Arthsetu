@@ -49,8 +49,12 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  getProposalActionDecoder,
+  getProposalActionEncoder,
   getProposalStateDecoder,
   getProposalStateEncoder,
+  type ProposalAction,
+  type ProposalActionArgs,
   type ProposalState,
   type ProposalStateArgs,
 } from "../types";
@@ -69,7 +73,7 @@ export type Proposal = {
   proposalId: bigint;
   proposer: Address;
   description: string;
-  instructionData: ReadonlyUint8Array;
+  action: ProposalAction;
   totalVotesAtCreation: bigint;
   forVotes: bigint;
   againstVotes: bigint;
@@ -88,7 +92,7 @@ export type ProposalArgs = {
   proposalId: number | bigint;
   proposer: Address;
   description: string;
-  instructionData: ReadonlyUint8Array;
+  action: ProposalActionArgs;
   totalVotesAtCreation: number | bigint;
   forVotes: number | bigint;
   againstVotes: number | bigint;
@@ -111,10 +115,7 @@ export function getProposalEncoder(): Encoder<ProposalArgs> {
       ["proposalId", getU64Encoder()],
       ["proposer", getAddressEncoder()],
       ["description", addEncoderSizePrefix(getUtf8Encoder(), getU32Encoder())],
-      [
-        "instructionData",
-        addEncoderSizePrefix(getBytesEncoder(), getU32Encoder()),
-      ],
+      ["action", getProposalActionEncoder()],
       ["totalVotesAtCreation", getU64Encoder()],
       ["forVotes", getU64Encoder()],
       ["againstVotes", getU64Encoder()],
@@ -139,10 +140,7 @@ export function getProposalDecoder(): Decoder<Proposal> {
     ["proposalId", getU64Decoder()],
     ["proposer", getAddressDecoder()],
     ["description", addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder())],
-    [
-      "instructionData",
-      addDecoderSizePrefix(getBytesDecoder(), getU32Decoder()),
-    ],
+    ["action", getProposalActionDecoder()],
     ["totalVotesAtCreation", getU64Decoder()],
     ["forVotes", getU64Decoder()],
     ["againstVotes", getU64Decoder()],

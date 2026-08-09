@@ -8,4 +8,6 @@
 
 export * from "./daoConfig";
 export * from "./govTokenState";
+export * from "./mintAuthorityPda";
+export * from "./voteEscrow";
 export * from "./voteRecord";

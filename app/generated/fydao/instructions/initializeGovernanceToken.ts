@@ -31,12 +31,17 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
-import { findDaoConfigPda, findGovTokenStatePda } from "../pdas";
+import {
+  findDaoConfigPda,
+  findGovTokenStatePda,
+  findMintAuthorityPdaPda,
+} from "../pdas";
 import { FYDAO_PROGRAM_ADDRESS } from "../programs";
 import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
@@ -56,6 +61,8 @@ export type InitializeGovernanceTokenInstruction<
   TAccountDaoConfig extends string | AccountMeta<string> = string,
   TAccountGovTokenState extends string | AccountMeta<string> = string,
   TAccountGovernanceMint extends string | AccountMeta<string> = string,
+  TAccountMintAuthorityPda extends string | AccountMeta<string> = string,
+  TAccountCurrentMintAuthority extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TAccountTokenProgram extends string | AccountMeta<string> =
@@ -80,6 +87,13 @@ export type InitializeGovernanceTokenInstruction<
       TAccountGovernanceMint extends string
         ? ReadonlyAccount<TAccountGovernanceMint>
         : TAccountGovernanceMint,
+      TAccountMintAuthorityPda extends string
+        ? ReadonlyAccount<TAccountMintAuthorityPda>
+        : TAccountMintAuthorityPda,
+      TAccountCurrentMintAuthority extends string
+        ? ReadonlySignerAccount<TAccountCurrentMintAuthority> &
+            AccountSignerMeta<TAccountCurrentMintAuthority>
+        : TAccountCurrentMintAuthority,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -145,6 +159,8 @@ export type InitializeGovernanceTokenAsyncInput<
   TAccountDaoConfig extends string = string,
   TAccountGovTokenState extends string = string,
   TAccountGovernanceMint extends string = string,
+  TAccountMintAuthorityPda extends string = string,
+  TAccountCurrentMintAuthority extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountRent extends string = string,
@@ -152,11 +168,15 @@ export type InitializeGovernanceTokenAsyncInput<
   authority: TransactionSigner<TAccountAuthority>;
   daoConfig?: Address<TAccountDaoConfig>;
   govTokenState?: Address<TAccountGovTokenState>;
-  /**
-   * The mint that will be used as governance token
-   * Authority of the mint should be the DAO or a PDA
-   */
+  /** The mint that will be used as governance token */
   governanceMint: Address<TAccountGovernanceMint>;
+  /**
+   * Program PDA that becomes the governance mint's sole MintTo authority,
+   * so minting can only happen through the program (C5/M10).
+   */
+  mintAuthorityPda?: Address<TAccountMintAuthorityPda>;
+  /** Current mint authority of `governance_mint`; must transfer it to the PDA */
+  currentMintAuthority: TransactionSigner<TAccountCurrentMintAuthority>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
   rent?: Address<TAccountRent>;
@@ -170,6 +190,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
   TAccountDaoConfig extends string,
   TAccountGovTokenState extends string,
   TAccountGovernanceMint extends string,
+  TAccountMintAuthorityPda extends string,
+  TAccountCurrentMintAuthority extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
   TAccountRent extends string,
@@ -180,6 +202,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     TAccountDaoConfig,
     TAccountGovTokenState,
     TAccountGovernanceMint,
+    TAccountMintAuthorityPda,
+    TAccountCurrentMintAuthority,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -192,6 +216,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     TAccountDaoConfig,
     TAccountGovTokenState,
     TAccountGovernanceMint,
+    TAccountMintAuthorityPda,
+    TAccountCurrentMintAuthority,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -206,6 +232,14 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     govTokenState: { value: input.govTokenState ?? null, isWritable: true },
     governanceMint: { value: input.governanceMint ?? null, isWritable: false },
+    mintAuthorityPda: {
+      value: input.mintAuthorityPda ?? null,
+      isWritable: false,
+    },
+    currentMintAuthority: {
+      value: input.currentMintAuthority ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },
@@ -225,6 +259,9 @@ export async function getInitializeGovernanceTokenInstructionAsync<
   if (!accounts.govTokenState.value) {
     accounts.govTokenState.value = await findGovTokenStatePda();
   }
+  if (!accounts.mintAuthorityPda.value) {
+    accounts.mintAuthorityPda.value = await findMintAuthorityPdaPda();
+  }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
@@ -245,6 +282,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.govTokenState),
       getAccountMeta(accounts.governanceMint),
+      getAccountMeta(accounts.mintAuthorityPda),
+      getAccountMeta(accounts.currentMintAuthority),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.rent),
@@ -259,6 +298,8 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     TAccountDaoConfig,
     TAccountGovTokenState,
     TAccountGovernanceMint,
+    TAccountMintAuthorityPda,
+    TAccountCurrentMintAuthority,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -270,6 +311,8 @@ export type InitializeGovernanceTokenInput<
   TAccountDaoConfig extends string = string,
   TAccountGovTokenState extends string = string,
   TAccountGovernanceMint extends string = string,
+  TAccountMintAuthorityPda extends string = string,
+  TAccountCurrentMintAuthority extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountRent extends string = string,
@@ -277,11 +320,15 @@ export type InitializeGovernanceTokenInput<
   authority: TransactionSigner<TAccountAuthority>;
   daoConfig: Address<TAccountDaoConfig>;
   govTokenState: Address<TAccountGovTokenState>;
-  /**
-   * The mint that will be used as governance token
-   * Authority of the mint should be the DAO or a PDA
-   */
+  /** The mint that will be used as governance token */
   governanceMint: Address<TAccountGovernanceMint>;
+  /**
+   * Program PDA that becomes the governance mint's sole MintTo authority,
+   * so minting can only happen through the program (C5/M10).
+   */
+  mintAuthorityPda: Address<TAccountMintAuthorityPda>;
+  /** Current mint authority of `governance_mint`; must transfer it to the PDA */
+  currentMintAuthority: TransactionSigner<TAccountCurrentMintAuthority>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
   rent?: Address<TAccountRent>;
@@ -295,6 +342,8 @@ export function getInitializeGovernanceTokenInstruction<
   TAccountDaoConfig extends string,
   TAccountGovTokenState extends string,
   TAccountGovernanceMint extends string,
+  TAccountMintAuthorityPda extends string,
+  TAccountCurrentMintAuthority extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
   TAccountRent extends string,
@@ -305,6 +354,8 @@ export function getInitializeGovernanceTokenInstruction<
     TAccountDaoConfig,
     TAccountGovTokenState,
     TAccountGovernanceMint,
+    TAccountMintAuthorityPda,
+    TAccountCurrentMintAuthority,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -316,6 +367,8 @@ export function getInitializeGovernanceTokenInstruction<
   TAccountDaoConfig,
   TAccountGovTokenState,
   TAccountGovernanceMint,
+  TAccountMintAuthorityPda,
+  TAccountCurrentMintAuthority,
   TAccountSystemProgram,
   TAccountTokenProgram,
   TAccountRent
@@ -329,6 +382,14 @@ export function getInitializeGovernanceTokenInstruction<
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     govTokenState: { value: input.govTokenState ?? null, isWritable: true },
     governanceMint: { value: input.governanceMint ?? null, isWritable: false },
+    mintAuthorityPda: {
+      value: input.mintAuthorityPda ?? null,
+      isWritable: false,
+    },
+    currentMintAuthority: {
+      value: input.currentMintAuthority ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },
@@ -362,6 +423,8 @@ export function getInitializeGovernanceTokenInstruction<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.govTokenState),
       getAccountMeta(accounts.governanceMint),
+      getAccountMeta(accounts.mintAuthorityPda),
+      getAccountMeta(accounts.currentMintAuthority),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.rent),
@@ -376,6 +439,8 @@ export function getInitializeGovernanceTokenInstruction<
     TAccountDaoConfig,
     TAccountGovTokenState,
     TAccountGovernanceMint,
+    TAccountMintAuthorityPda,
+    TAccountCurrentMintAuthority,
     TAccountSystemProgram,
     TAccountTokenProgram,
     TAccountRent
@@ -391,14 +456,18 @@ export type ParsedInitializeGovernanceTokenInstruction<
     authority: TAccountMetas[0];
     daoConfig: TAccountMetas[1];
     govTokenState: TAccountMetas[2];
-    /**
-     * The mint that will be used as governance token
-     * Authority of the mint should be the DAO or a PDA
-     */
+    /** The mint that will be used as governance token */
     governanceMint: TAccountMetas[3];
-    systemProgram: TAccountMetas[4];
-    tokenProgram: TAccountMetas[5];
-    rent: TAccountMetas[6];
+    /**
+     * Program PDA that becomes the governance mint's sole MintTo authority,
+     * so minting can only happen through the program (C5/M10).
+     */
+    mintAuthorityPda: TAccountMetas[4];
+    /** Current mint authority of `governance_mint`; must transfer it to the PDA */
+    currentMintAuthority: TAccountMetas[5];
+    systemProgram: TAccountMetas[6];
+    tokenProgram: TAccountMetas[7];
+    rent: TAccountMetas[8];
   };
   data: InitializeGovernanceTokenInstructionData;
 };
@@ -411,7 +480,7 @@ export function parseInitializeGovernanceTokenInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeGovernanceTokenInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -428,6 +497,8 @@ export function parseInitializeGovernanceTokenInstruction<
       daoConfig: getNextAccount(),
       govTokenState: getNextAccount(),
       governanceMint: getNextAccount(),
+      mintAuthorityPda: getNextAccount(),
+      currentMintAuthority: getNextAccount(),
       systemProgram: getNextAccount(),
       tokenProgram: getNextAccount(),
       rent: getNextAccount(),

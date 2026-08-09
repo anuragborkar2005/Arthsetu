@@ -17,6 +17,8 @@ import {
   fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBooleanDecoder,
+  getBooleanEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getI64Decoder,
@@ -59,6 +61,8 @@ export type VoteRecord = {
   /** Voting power used */
   weight: bigint;
   votedAt: bigint;
+  /** Whether the locked voting power has been returned to the voter */
+  unlocked: boolean;
 };
 
 export type VoteRecordArgs = {
@@ -70,6 +74,8 @@ export type VoteRecordArgs = {
   /** Voting power used */
   weight: number | bigint;
   votedAt: number | bigint;
+  /** Whether the locked voting power has been returned to the voter */
+  unlocked: boolean;
 };
 
 /** Gets the encoder for {@link VoteRecordArgs} account data. */
@@ -83,6 +89,7 @@ export function getVoteRecordEncoder(): FixedSizeEncoder<VoteRecordArgs> {
       ["support", getU8Encoder()],
       ["weight", getU64Encoder()],
       ["votedAt", getI64Encoder()],
+      ["unlocked", getBooleanEncoder()],
     ]),
     (value) => ({ ...value, discriminator: VOTE_RECORD_DISCRIMINATOR }),
   );
@@ -98,6 +105,7 @@ export function getVoteRecordDecoder(): FixedSizeDecoder<VoteRecord> {
     ["support", getU8Decoder()],
     ["weight", getU64Decoder()],
     ["votedAt", getI64Decoder()],
+    ["unlocked", getBooleanDecoder()],
   ]);
 }
 
@@ -163,5 +171,5 @@ export async function fetchAllMaybeVoteRecord(
 }
 
 export function getVoteRecordSize(): number {
-  return 90;
+  return 91;
 }

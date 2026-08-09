@@ -16,8 +16,6 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -46,30 +44,28 @@ import {
   type ResolvedAccount,
 } from "../shared";
 
-export const CAST_VOTE_DISCRIMINATOR = new Uint8Array([
-  20, 212, 15, 189, 69, 180, 69, 151,
+export const UNLOCK_VOTES_DISCRIMINATOR = new Uint8Array([
+  31, 4, 235, 111, 176, 15, 112, 106,
 ]);
 
-export function getCastVoteDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(CAST_VOTE_DISCRIMINATOR);
+export function getUnlockVotesDiscriminatorBytes() {
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    UNLOCK_VOTES_DISCRIMINATOR,
+  );
 }
 
-export type CastVoteInstruction<
+export type UnlockVotesInstruction<
   TProgram extends string = typeof FYDAO_PROGRAM_ADDRESS,
   TAccountVoter extends string | AccountMeta<string> = string,
   TAccountDaoConfig extends string | AccountMeta<string> = string,
   TAccountProposal extends string | AccountMeta<string> = string,
   TAccountGovernanceMint extends string | AccountMeta<string> = string,
-  TAccountVoterTokenAccount extends string | AccountMeta<string> = string,
+  TAccountVoteRecord extends string | AccountMeta<string> = string,
   TAccountVoteEscrow extends string | AccountMeta<string> = string,
   TAccountEscrowTokenAccount extends string | AccountMeta<string> = string,
-  TAccountVoteRecord extends string | AccountMeta<string> = string,
-  TAccountSystemProgram extends string | AccountMeta<string> =
-    "11111111111111111111111111111111",
+  TAccountVoterTokenAccount extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  TAccountAssociatedTokenProgram extends string | AccountMeta<string> =
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -88,140 +84,114 @@ export type CastVoteInstruction<
       TAccountGovernanceMint extends string
         ? ReadonlyAccount<TAccountGovernanceMint>
         : TAccountGovernanceMint,
-      TAccountVoterTokenAccount extends string
-        ? WritableAccount<TAccountVoterTokenAccount>
-        : TAccountVoterTokenAccount,
+      TAccountVoteRecord extends string
+        ? WritableAccount<TAccountVoteRecord>
+        : TAccountVoteRecord,
       TAccountVoteEscrow extends string
         ? ReadonlyAccount<TAccountVoteEscrow>
         : TAccountVoteEscrow,
       TAccountEscrowTokenAccount extends string
         ? WritableAccount<TAccountEscrowTokenAccount>
         : TAccountEscrowTokenAccount,
-      TAccountVoteRecord extends string
-        ? WritableAccount<TAccountVoteRecord>
-        : TAccountVoteRecord,
-      TAccountSystemProgram extends string
-        ? ReadonlyAccount<TAccountSystemProgram>
-        : TAccountSystemProgram,
+      TAccountVoterTokenAccount extends string
+        ? WritableAccount<TAccountVoterTokenAccount>
+        : TAccountVoterTokenAccount,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
-      TAccountAssociatedTokenProgram extends string
-        ? ReadonlyAccount<TAccountAssociatedTokenProgram>
-        : TAccountAssociatedTokenProgram,
       ...TRemainingAccounts,
     ]
   >;
 
-export type CastVoteInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  support: number;
-};
+export type UnlockVotesInstructionData = { discriminator: ReadonlyUint8Array };
 
-export type CastVoteInstructionDataArgs = { support: number };
+export type UnlockVotesInstructionDataArgs = {};
 
-export function getCastVoteInstructionDataEncoder(): FixedSizeEncoder<CastVoteInstructionDataArgs> {
+export function getUnlockVotesInstructionDataEncoder(): FixedSizeEncoder<UnlockVotesInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["support", getU8Encoder()],
-    ]),
-    (value) => ({ ...value, discriminator: CAST_VOTE_DISCRIMINATOR }),
+    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
+    (value) => ({ ...value, discriminator: UNLOCK_VOTES_DISCRIMINATOR }),
   );
 }
 
-export function getCastVoteInstructionDataDecoder(): FixedSizeDecoder<CastVoteInstructionData> {
+export function getUnlockVotesInstructionDataDecoder(): FixedSizeDecoder<UnlockVotesInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["support", getU8Decoder()],
   ]);
 }
 
-export function getCastVoteInstructionDataCodec(): FixedSizeCodec<
-  CastVoteInstructionDataArgs,
-  CastVoteInstructionData
+export function getUnlockVotesInstructionDataCodec(): FixedSizeCodec<
+  UnlockVotesInstructionDataArgs,
+  UnlockVotesInstructionData
 > {
   return combineCodec(
-    getCastVoteInstructionDataEncoder(),
-    getCastVoteInstructionDataDecoder(),
+    getUnlockVotesInstructionDataEncoder(),
+    getUnlockVotesInstructionDataDecoder(),
   );
 }
 
-export type CastVoteAsyncInput<
+export type UnlockVotesAsyncInput<
   TAccountVoter extends string = string,
   TAccountDaoConfig extends string = string,
   TAccountProposal extends string = string,
   TAccountGovernanceMint extends string = string,
-  TAccountVoterTokenAccount extends string = string,
+  TAccountVoteRecord extends string = string,
   TAccountVoteEscrow extends string = string,
   TAccountEscrowTokenAccount extends string = string,
-  TAccountVoteRecord extends string = string,
-  TAccountSystemProgram extends string = string,
+  TAccountVoterTokenAccount extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountAssociatedTokenProgram extends string = string,
 > = {
   voter: TransactionSigner<TAccountVoter>;
   daoConfig?: Address<TAccountDaoConfig>;
   proposal: Address<TAccountProposal>;
   /** Governance token mint (must match the DAO config) */
   governanceMint: Address<TAccountGovernanceMint>;
-  voterTokenAccount: Address<TAccountVoterTokenAccount>;
-  /**
-   * Per-voter vote escrow PDA; owns the locked governance tokens
-   * Seeds: ["vote_escrow", voter]
-   */
-  voteEscrow?: Address<TAccountVoteEscrow>;
-  /** Escrow ATA that receives (locks) the voter's governance tokens while voting */
-  escrowTokenAccount?: Address<TAccountEscrowTokenAccount>;
   voteRecord?: Address<TAccountVoteRecord>;
-  systemProgram?: Address<TAccountSystemProgram>;
+  /** Per-voter vote escrow PDA; owns the locked governance tokens */
+  voteEscrow?: Address<TAccountVoteEscrow>;
+  /** Escrow ATA holding the locked governance tokens */
+  escrowTokenAccount?: Address<TAccountEscrowTokenAccount>;
+  /** Voter's own token account that receives the unlocked tokens */
+  voterTokenAccount: Address<TAccountVoterTokenAccount>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
-  support: CastVoteInstructionDataArgs["support"];
 };
 
-export async function getCastVoteInstructionAsync<
+export async function getUnlockVotesInstructionAsync<
   TAccountVoter extends string,
   TAccountDaoConfig extends string,
   TAccountProposal extends string,
   TAccountGovernanceMint extends string,
-  TAccountVoterTokenAccount extends string,
+  TAccountVoteRecord extends string,
   TAccountVoteEscrow extends string,
   TAccountEscrowTokenAccount extends string,
-  TAccountVoteRecord extends string,
-  TAccountSystemProgram extends string,
+  TAccountVoterTokenAccount extends string,
   TAccountTokenProgram extends string,
-  TAccountAssociatedTokenProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
-  input: CastVoteAsyncInput<
+  input: UnlockVotesAsyncInput<
     TAccountVoter,
     TAccountDaoConfig,
     TAccountProposal,
     TAccountGovernanceMint,
-    TAccountVoterTokenAccount,
+    TAccountVoteRecord,
     TAccountVoteEscrow,
     TAccountEscrowTokenAccount,
-    TAccountVoteRecord,
-    TAccountSystemProgram,
-    TAccountTokenProgram,
-    TAccountAssociatedTokenProgram
+    TAccountVoterTokenAccount,
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  CastVoteInstruction<
+  UnlockVotesInstruction<
     TProgramAddress,
     TAccountVoter,
     TAccountDaoConfig,
     TAccountProposal,
     TAccountGovernanceMint,
-    TAccountVoterTokenAccount,
+    TAccountVoteRecord,
     TAccountVoteEscrow,
     TAccountEscrowTokenAccount,
-    TAccountVoteRecord,
-    TAccountSystemProgram,
-    TAccountTokenProgram,
-    TAccountAssociatedTokenProgram
+    TAccountVoterTokenAccount,
+    TAccountTokenProgram
   >
 > {
   // Program address.
@@ -233,34 +203,32 @@ export async function getCastVoteInstructionAsync<
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     proposal: { value: input.proposal ?? null, isWritable: true },
     governanceMint: { value: input.governanceMint ?? null, isWritable: false },
-    voterTokenAccount: {
-      value: input.voterTokenAccount ?? null,
-      isWritable: true,
-    },
+    voteRecord: { value: input.voteRecord ?? null, isWritable: true },
     voteEscrow: { value: input.voteEscrow ?? null, isWritable: false },
     escrowTokenAccount: {
       value: input.escrowTokenAccount ?? null,
       isWritable: true,
     },
-    voteRecord: { value: input.voteRecord ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    associatedTokenProgram: {
-      value: input.associatedTokenProgram ?? null,
-      isWritable: false,
+    voterTokenAccount: {
+      value: input.voterTokenAccount ?? null,
+      isWritable: true,
     },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   // Resolve default values.
   if (!accounts.daoConfig.value) {
     accounts.daoConfig.value = await findDaoConfigPda();
+  }
+  if (!accounts.voteRecord.value) {
+    accounts.voteRecord.value = await findVoteRecordPda({
+      proposal: expectAddress(accounts.proposal.value),
+      voter: expectAddress(accounts.voter.value),
+    });
   }
   if (!accounts.voteEscrow.value) {
     accounts.voteEscrow.value = await findVoteEscrowPda({
@@ -286,23 +254,9 @@ export async function getCastVoteInstructionAsync<
       ],
     });
   }
-  if (!accounts.voteRecord.value) {
-    accounts.voteRecord.value = await findVoteRecordPda({
-      proposal: expectAddress(accounts.proposal.value),
-      voter: expectAddress(accounts.voter.value),
-    });
-  }
-  if (!accounts.systemProgram.value) {
-    accounts.systemProgram.value =
-      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
-  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
-  }
-  if (!accounts.associatedTokenProgram.value) {
-    accounts.associatedTokenProgram.value =
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address<"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
@@ -312,108 +266,89 @@ export async function getCastVoteInstructionAsync<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.governanceMint),
-      getAccountMeta(accounts.voterTokenAccount),
+      getAccountMeta(accounts.voteRecord),
       getAccountMeta(accounts.voteEscrow),
       getAccountMeta(accounts.escrowTokenAccount),
-      getAccountMeta(accounts.voteRecord),
-      getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.voterTokenAccount),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.associatedTokenProgram),
     ],
-    data: getCastVoteInstructionDataEncoder().encode(
-      args as CastVoteInstructionDataArgs,
-    ),
+    data: getUnlockVotesInstructionDataEncoder().encode({}),
     programAddress,
-  } as CastVoteInstruction<
+  } as UnlockVotesInstruction<
     TProgramAddress,
     TAccountVoter,
     TAccountDaoConfig,
     TAccountProposal,
     TAccountGovernanceMint,
-    TAccountVoterTokenAccount,
+    TAccountVoteRecord,
     TAccountVoteEscrow,
     TAccountEscrowTokenAccount,
-    TAccountVoteRecord,
-    TAccountSystemProgram,
-    TAccountTokenProgram,
-    TAccountAssociatedTokenProgram
+    TAccountVoterTokenAccount,
+    TAccountTokenProgram
   >);
 }
 
-export type CastVoteInput<
+export type UnlockVotesInput<
   TAccountVoter extends string = string,
   TAccountDaoConfig extends string = string,
   TAccountProposal extends string = string,
   TAccountGovernanceMint extends string = string,
-  TAccountVoterTokenAccount extends string = string,
+  TAccountVoteRecord extends string = string,
   TAccountVoteEscrow extends string = string,
   TAccountEscrowTokenAccount extends string = string,
-  TAccountVoteRecord extends string = string,
-  TAccountSystemProgram extends string = string,
+  TAccountVoterTokenAccount extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountAssociatedTokenProgram extends string = string,
 > = {
   voter: TransactionSigner<TAccountVoter>;
   daoConfig: Address<TAccountDaoConfig>;
   proposal: Address<TAccountProposal>;
   /** Governance token mint (must match the DAO config) */
   governanceMint: Address<TAccountGovernanceMint>;
-  voterTokenAccount: Address<TAccountVoterTokenAccount>;
-  /**
-   * Per-voter vote escrow PDA; owns the locked governance tokens
-   * Seeds: ["vote_escrow", voter]
-   */
-  voteEscrow: Address<TAccountVoteEscrow>;
-  /** Escrow ATA that receives (locks) the voter's governance tokens while voting */
-  escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
   voteRecord: Address<TAccountVoteRecord>;
-  systemProgram?: Address<TAccountSystemProgram>;
+  /** Per-voter vote escrow PDA; owns the locked governance tokens */
+  voteEscrow: Address<TAccountVoteEscrow>;
+  /** Escrow ATA holding the locked governance tokens */
+  escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
+  /** Voter's own token account that receives the unlocked tokens */
+  voterTokenAccount: Address<TAccountVoterTokenAccount>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
-  support: CastVoteInstructionDataArgs["support"];
 };
 
-export function getCastVoteInstruction<
+export function getUnlockVotesInstruction<
   TAccountVoter extends string,
   TAccountDaoConfig extends string,
   TAccountProposal extends string,
   TAccountGovernanceMint extends string,
-  TAccountVoterTokenAccount extends string,
+  TAccountVoteRecord extends string,
   TAccountVoteEscrow extends string,
   TAccountEscrowTokenAccount extends string,
-  TAccountVoteRecord extends string,
-  TAccountSystemProgram extends string,
+  TAccountVoterTokenAccount extends string,
   TAccountTokenProgram extends string,
-  TAccountAssociatedTokenProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
-  input: CastVoteInput<
+  input: UnlockVotesInput<
     TAccountVoter,
     TAccountDaoConfig,
     TAccountProposal,
     TAccountGovernanceMint,
-    TAccountVoterTokenAccount,
+    TAccountVoteRecord,
     TAccountVoteEscrow,
     TAccountEscrowTokenAccount,
-    TAccountVoteRecord,
-    TAccountSystemProgram,
-    TAccountTokenProgram,
-    TAccountAssociatedTokenProgram
+    TAccountVoterTokenAccount,
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): CastVoteInstruction<
+): UnlockVotesInstruction<
   TProgramAddress,
   TAccountVoter,
   TAccountDaoConfig,
   TAccountProposal,
   TAccountGovernanceMint,
-  TAccountVoterTokenAccount,
+  TAccountVoteRecord,
   TAccountVoteEscrow,
   TAccountEscrowTokenAccount,
-  TAccountVoteRecord,
-  TAccountSystemProgram,
-  TAccountTokenProgram,
-  TAccountAssociatedTokenProgram
+  TAccountVoterTokenAccount,
+  TAccountTokenProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? FYDAO_PROGRAM_ADDRESS;
@@ -424,43 +359,27 @@ export function getCastVoteInstruction<
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     proposal: { value: input.proposal ?? null, isWritable: true },
     governanceMint: { value: input.governanceMint ?? null, isWritable: false },
-    voterTokenAccount: {
-      value: input.voterTokenAccount ?? null,
-      isWritable: true,
-    },
+    voteRecord: { value: input.voteRecord ?? null, isWritable: true },
     voteEscrow: { value: input.voteEscrow ?? null, isWritable: false },
     escrowTokenAccount: {
       value: input.escrowTokenAccount ?? null,
       isWritable: true,
     },
-    voteRecord: { value: input.voteRecord ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    associatedTokenProgram: {
-      value: input.associatedTokenProgram ?? null,
-      isWritable: false,
+    voterTokenAccount: {
+      value: input.voterTokenAccount ?? null,
+      isWritable: true,
     },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   // Resolve default values.
-  if (!accounts.systemProgram.value) {
-    accounts.systemProgram.value =
-      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
-  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
-  }
-  if (!accounts.associatedTokenProgram.value) {
-    accounts.associatedTokenProgram.value =
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address<"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
@@ -470,35 +389,29 @@ export function getCastVoteInstruction<
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.governanceMint),
-      getAccountMeta(accounts.voterTokenAccount),
+      getAccountMeta(accounts.voteRecord),
       getAccountMeta(accounts.voteEscrow),
       getAccountMeta(accounts.escrowTokenAccount),
-      getAccountMeta(accounts.voteRecord),
-      getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.voterTokenAccount),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.associatedTokenProgram),
     ],
-    data: getCastVoteInstructionDataEncoder().encode(
-      args as CastVoteInstructionDataArgs,
-    ),
+    data: getUnlockVotesInstructionDataEncoder().encode({}),
     programAddress,
-  } as CastVoteInstruction<
+  } as UnlockVotesInstruction<
     TProgramAddress,
     TAccountVoter,
     TAccountDaoConfig,
     TAccountProposal,
     TAccountGovernanceMint,
-    TAccountVoterTokenAccount,
+    TAccountVoteRecord,
     TAccountVoteEscrow,
     TAccountEscrowTokenAccount,
-    TAccountVoteRecord,
-    TAccountSystemProgram,
-    TAccountTokenProgram,
-    TAccountAssociatedTokenProgram
+    TAccountVoterTokenAccount,
+    TAccountTokenProgram
   >);
 }
 
-export type ParsedCastVoteInstruction<
+export type ParsedUnlockVotesInstruction<
   TProgram extends string = typeof FYDAO_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -509,31 +422,27 @@ export type ParsedCastVoteInstruction<
     proposal: TAccountMetas[2];
     /** Governance token mint (must match the DAO config) */
     governanceMint: TAccountMetas[3];
-    voterTokenAccount: TAccountMetas[4];
-    /**
-     * Per-voter vote escrow PDA; owns the locked governance tokens
-     * Seeds: ["vote_escrow", voter]
-     */
+    voteRecord: TAccountMetas[4];
+    /** Per-voter vote escrow PDA; owns the locked governance tokens */
     voteEscrow: TAccountMetas[5];
-    /** Escrow ATA that receives (locks) the voter's governance tokens while voting */
+    /** Escrow ATA holding the locked governance tokens */
     escrowTokenAccount: TAccountMetas[6];
-    voteRecord: TAccountMetas[7];
-    systemProgram: TAccountMetas[8];
-    tokenProgram: TAccountMetas[9];
-    associatedTokenProgram: TAccountMetas[10];
+    /** Voter's own token account that receives the unlocked tokens */
+    voterTokenAccount: TAccountMetas[7];
+    tokenProgram: TAccountMetas[8];
   };
-  data: CastVoteInstructionData;
+  data: UnlockVotesInstructionData;
 };
 
-export function parseCastVoteInstruction<
+export function parseUnlockVotesInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedCastVoteInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 11) {
+): ParsedUnlockVotesInstruction<TProgram, TAccountMetas> {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -550,14 +459,12 @@ export function parseCastVoteInstruction<
       daoConfig: getNextAccount(),
       proposal: getNextAccount(),
       governanceMint: getNextAccount(),
-      voterTokenAccount: getNextAccount(),
+      voteRecord: getNextAccount(),
       voteEscrow: getNextAccount(),
       escrowTokenAccount: getNextAccount(),
-      voteRecord: getNextAccount(),
-      systemProgram: getNextAccount(),
+      voterTokenAccount: getNextAccount(),
       tokenProgram: getNextAccount(),
-      associatedTokenProgram: getNextAccount(),
     },
-    data: getCastVoteInstructionDataDecoder().decode(instruction.data),
+    data: getUnlockVotesInstructionDataDecoder().decode(instruction.data),
   };
 }

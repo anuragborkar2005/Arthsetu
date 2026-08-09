@@ -18,7 +18,6 @@ import {
   getU64Encoder,
   transformEncoder,
   type AccountMeta,
-  type AccountSignerMeta,
   type Address,
   type FixedSizeCodec,
   type FixedSizeDecoder,
@@ -27,9 +26,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
-  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
 import { findDaoConfigPda } from "../pdas";
@@ -48,8 +45,8 @@ export function getReleaseMilestoneDiscriminatorBytes() {
 
 export type ReleaseMilestoneInstruction<
   TProgram extends string = typeof FYDAO_PROGRAM_ADDRESS,
-  TAccountAuthority extends string | AccountMeta<string> = string,
   TAccountDaoConfig extends string | AccountMeta<string> = string,
+  TAccountProposal extends string | AccountMeta<string> = string,
   TAccountCampaign extends string | AccountMeta<string> = string,
   TAccountMilestone extends string | AccountMeta<string> = string,
   TAccountEscrowTokenAccount extends string | AccountMeta<string> = string,
@@ -61,13 +58,12 @@ export type ReleaseMilestoneInstruction<
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountAuthority extends string
-        ? ReadonlySignerAccount<TAccountAuthority> &
-            AccountSignerMeta<TAccountAuthority>
-        : TAccountAuthority,
       TAccountDaoConfig extends string
         ? ReadonlyAccount<TAccountDaoConfig>
         : TAccountDaoConfig,
+      TAccountProposal extends string
+        ? WritableAccount<TAccountProposal>
+        : TAccountProposal,
       TAccountCampaign extends string
         ? WritableAccount<TAccountCampaign>
         : TAccountCampaign,
@@ -124,17 +120,17 @@ export function getReleaseMilestoneInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type ReleaseMilestoneAsyncInput<
-  TAccountAuthority extends string = string,
   TAccountDaoConfig extends string = string,
+  TAccountProposal extends string = string,
   TAccountCampaign extends string = string,
   TAccountMilestone extends string = string,
   TAccountEscrowTokenAccount extends string = string,
   TAccountCreatorTokenAccount extends string = string,
   TAccountTokenProgram extends string = string,
 > = {
-  /** Must be the DAO authority (timelock equivalent) */
-  authority: TransactionSigner<TAccountAuthority>;
   daoConfig?: Address<TAccountDaoConfig>;
+  /** The passed proposal that authorizes this milestone release */
+  proposal: Address<TAccountProposal>;
   campaign: Address<TAccountCampaign>;
   milestone: Address<TAccountMilestone>;
   /** Escrow ATA (owned by campaign PDA) */
@@ -146,8 +142,8 @@ export type ReleaseMilestoneAsyncInput<
 };
 
 export async function getReleaseMilestoneInstructionAsync<
-  TAccountAuthority extends string,
   TAccountDaoConfig extends string,
+  TAccountProposal extends string,
   TAccountCampaign extends string,
   TAccountMilestone extends string,
   TAccountEscrowTokenAccount extends string,
@@ -156,8 +152,8 @@ export async function getReleaseMilestoneInstructionAsync<
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
   input: ReleaseMilestoneAsyncInput<
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountMilestone,
     TAccountEscrowTokenAccount,
@@ -168,8 +164,8 @@ export async function getReleaseMilestoneInstructionAsync<
 ): Promise<
   ReleaseMilestoneInstruction<
     TProgramAddress,
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountMilestone,
     TAccountEscrowTokenAccount,
@@ -182,8 +178,8 @@ export async function getReleaseMilestoneInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
+    proposal: { value: input.proposal ?? null, isWritable: true },
     campaign: { value: input.campaign ?? null, isWritable: true },
     milestone: { value: input.milestone ?? null, isWritable: true },
     escrowTokenAccount: {
@@ -216,8 +212,8 @@ export async function getReleaseMilestoneInstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.daoConfig),
+      getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.campaign),
       getAccountMeta(accounts.milestone),
       getAccountMeta(accounts.escrowTokenAccount),
@@ -230,8 +226,8 @@ export async function getReleaseMilestoneInstructionAsync<
     programAddress,
   } as ReleaseMilestoneInstruction<
     TProgramAddress,
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountMilestone,
     TAccountEscrowTokenAccount,
@@ -241,17 +237,17 @@ export async function getReleaseMilestoneInstructionAsync<
 }
 
 export type ReleaseMilestoneInput<
-  TAccountAuthority extends string = string,
   TAccountDaoConfig extends string = string,
+  TAccountProposal extends string = string,
   TAccountCampaign extends string = string,
   TAccountMilestone extends string = string,
   TAccountEscrowTokenAccount extends string = string,
   TAccountCreatorTokenAccount extends string = string,
   TAccountTokenProgram extends string = string,
 > = {
-  /** Must be the DAO authority (timelock equivalent) */
-  authority: TransactionSigner<TAccountAuthority>;
   daoConfig: Address<TAccountDaoConfig>;
+  /** The passed proposal that authorizes this milestone release */
+  proposal: Address<TAccountProposal>;
   campaign: Address<TAccountCampaign>;
   milestone: Address<TAccountMilestone>;
   /** Escrow ATA (owned by campaign PDA) */
@@ -263,8 +259,8 @@ export type ReleaseMilestoneInput<
 };
 
 export function getReleaseMilestoneInstruction<
-  TAccountAuthority extends string,
   TAccountDaoConfig extends string,
+  TAccountProposal extends string,
   TAccountCampaign extends string,
   TAccountMilestone extends string,
   TAccountEscrowTokenAccount extends string,
@@ -273,8 +269,8 @@ export function getReleaseMilestoneInstruction<
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
   input: ReleaseMilestoneInput<
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountMilestone,
     TAccountEscrowTokenAccount,
@@ -284,8 +280,8 @@ export function getReleaseMilestoneInstruction<
   config?: { programAddress?: TProgramAddress },
 ): ReleaseMilestoneInstruction<
   TProgramAddress,
-  TAccountAuthority,
   TAccountDaoConfig,
+  TAccountProposal,
   TAccountCampaign,
   TAccountMilestone,
   TAccountEscrowTokenAccount,
@@ -297,8 +293,8 @@ export function getReleaseMilestoneInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
+    proposal: { value: input.proposal ?? null, isWritable: true },
     campaign: { value: input.campaign ?? null, isWritable: true },
     milestone: { value: input.milestone ?? null, isWritable: true },
     escrowTokenAccount: {
@@ -328,8 +324,8 @@ export function getReleaseMilestoneInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.daoConfig),
+      getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.campaign),
       getAccountMeta(accounts.milestone),
       getAccountMeta(accounts.escrowTokenAccount),
@@ -342,8 +338,8 @@ export function getReleaseMilestoneInstruction<
     programAddress,
   } as ReleaseMilestoneInstruction<
     TProgramAddress,
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountMilestone,
     TAccountEscrowTokenAccount,
@@ -358,9 +354,9 @@ export type ParsedReleaseMilestoneInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Must be the DAO authority (timelock equivalent) */
-    authority: TAccountMetas[0];
-    daoConfig: TAccountMetas[1];
+    daoConfig: TAccountMetas[0];
+    /** The passed proposal that authorizes this milestone release */
+    proposal: TAccountMetas[1];
     campaign: TAccountMetas[2];
     milestone: TAccountMetas[3];
     /** Escrow ATA (owned by campaign PDA) */
@@ -393,8 +389,8 @@ export function parseReleaseMilestoneInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      authority: getNextAccount(),
       daoConfig: getNextAccount(),
+      proposal: getNextAccount(),
       campaign: getNextAccount(),
       milestone: getNextAccount(),
       escrowTokenAccount: getNextAccount(),

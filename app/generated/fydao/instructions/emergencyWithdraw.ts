@@ -18,7 +18,6 @@ import {
   getU64Encoder,
   transformEncoder,
   type AccountMeta,
-  type AccountSignerMeta,
   type Address,
   type FixedSizeCodec,
   type FixedSizeDecoder,
@@ -27,9 +26,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
-  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
 import { findDaoConfigPda } from "../pdas";
@@ -48,8 +45,8 @@ export function getEmergencyWithdrawDiscriminatorBytes() {
 
 export type EmergencyWithdrawInstruction<
   TProgram extends string = typeof FYDAO_PROGRAM_ADDRESS,
-  TAccountAuthority extends string | AccountMeta<string> = string,
   TAccountDaoConfig extends string | AccountMeta<string> = string,
+  TAccountProposal extends string | AccountMeta<string> = string,
   TAccountCampaign extends string | AccountMeta<string> = string,
   TAccountEscrowTokenAccount extends string | AccountMeta<string> = string,
   TAccountDestination extends string | AccountMeta<string> = string,
@@ -60,13 +57,12 @@ export type EmergencyWithdrawInstruction<
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountAuthority extends string
-        ? ReadonlySignerAccount<TAccountAuthority> &
-            AccountSignerMeta<TAccountAuthority>
-        : TAccountAuthority,
       TAccountDaoConfig extends string
         ? ReadonlyAccount<TAccountDaoConfig>
         : TAccountDaoConfig,
+      TAccountProposal extends string
+        ? WritableAccount<TAccountProposal>
+        : TAccountProposal,
       TAccountCampaign extends string
         ? WritableAccount<TAccountCampaign>
         : TAccountCampaign,
@@ -118,15 +114,16 @@ export function getEmergencyWithdrawInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type EmergencyWithdrawAsyncInput<
-  TAccountAuthority extends string = string,
   TAccountDaoConfig extends string = string,
+  TAccountProposal extends string = string,
   TAccountCampaign extends string = string,
   TAccountEscrowTokenAccount extends string = string,
   TAccountDestination extends string = string,
   TAccountTokenProgram extends string = string,
 > = {
-  authority: TransactionSigner<TAccountAuthority>;
   daoConfig?: Address<TAccountDaoConfig>;
+  /** The passed proposal that authorizes this drain */
+  proposal: Address<TAccountProposal>;
   campaign: Address<TAccountCampaign>;
   escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
   /** Destination must be the canonical DAO treasury token account */
@@ -136,8 +133,8 @@ export type EmergencyWithdrawAsyncInput<
 };
 
 export async function getEmergencyWithdrawInstructionAsync<
-  TAccountAuthority extends string,
   TAccountDaoConfig extends string,
+  TAccountProposal extends string,
   TAccountCampaign extends string,
   TAccountEscrowTokenAccount extends string,
   TAccountDestination extends string,
@@ -145,8 +142,8 @@ export async function getEmergencyWithdrawInstructionAsync<
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
   input: EmergencyWithdrawAsyncInput<
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountEscrowTokenAccount,
     TAccountDestination,
@@ -156,8 +153,8 @@ export async function getEmergencyWithdrawInstructionAsync<
 ): Promise<
   EmergencyWithdrawInstruction<
     TProgramAddress,
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountEscrowTokenAccount,
     TAccountDestination,
@@ -169,8 +166,8 @@ export async function getEmergencyWithdrawInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
+    proposal: { value: input.proposal ?? null, isWritable: true },
     campaign: { value: input.campaign ?? null, isWritable: true },
     escrowTokenAccount: {
       value: input.escrowTokenAccount ?? null,
@@ -199,8 +196,8 @@ export async function getEmergencyWithdrawInstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.daoConfig),
+      getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.campaign),
       getAccountMeta(accounts.escrowTokenAccount),
       getAccountMeta(accounts.destination),
@@ -212,8 +209,8 @@ export async function getEmergencyWithdrawInstructionAsync<
     programAddress,
   } as EmergencyWithdrawInstruction<
     TProgramAddress,
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountEscrowTokenAccount,
     TAccountDestination,
@@ -222,15 +219,16 @@ export async function getEmergencyWithdrawInstructionAsync<
 }
 
 export type EmergencyWithdrawInput<
-  TAccountAuthority extends string = string,
   TAccountDaoConfig extends string = string,
+  TAccountProposal extends string = string,
   TAccountCampaign extends string = string,
   TAccountEscrowTokenAccount extends string = string,
   TAccountDestination extends string = string,
   TAccountTokenProgram extends string = string,
 > = {
-  authority: TransactionSigner<TAccountAuthority>;
   daoConfig: Address<TAccountDaoConfig>;
+  /** The passed proposal that authorizes this drain */
+  proposal: Address<TAccountProposal>;
   campaign: Address<TAccountCampaign>;
   escrowTokenAccount: Address<TAccountEscrowTokenAccount>;
   /** Destination must be the canonical DAO treasury token account */
@@ -240,8 +238,8 @@ export type EmergencyWithdrawInput<
 };
 
 export function getEmergencyWithdrawInstruction<
-  TAccountAuthority extends string,
   TAccountDaoConfig extends string,
+  TAccountProposal extends string,
   TAccountCampaign extends string,
   TAccountEscrowTokenAccount extends string,
   TAccountDestination extends string,
@@ -249,8 +247,8 @@ export function getEmergencyWithdrawInstruction<
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
   input: EmergencyWithdrawInput<
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountEscrowTokenAccount,
     TAccountDestination,
@@ -259,8 +257,8 @@ export function getEmergencyWithdrawInstruction<
   config?: { programAddress?: TProgramAddress },
 ): EmergencyWithdrawInstruction<
   TProgramAddress,
-  TAccountAuthority,
   TAccountDaoConfig,
+  TAccountProposal,
   TAccountCampaign,
   TAccountEscrowTokenAccount,
   TAccountDestination,
@@ -271,8 +269,8 @@ export function getEmergencyWithdrawInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
+    proposal: { value: input.proposal ?? null, isWritable: true },
     campaign: { value: input.campaign ?? null, isWritable: true },
     escrowTokenAccount: {
       value: input.escrowTokenAccount ?? null,
@@ -298,8 +296,8 @@ export function getEmergencyWithdrawInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.daoConfig),
+      getAccountMeta(accounts.proposal),
       getAccountMeta(accounts.campaign),
       getAccountMeta(accounts.escrowTokenAccount),
       getAccountMeta(accounts.destination),
@@ -311,8 +309,8 @@ export function getEmergencyWithdrawInstruction<
     programAddress,
   } as EmergencyWithdrawInstruction<
     TProgramAddress,
-    TAccountAuthority,
     TAccountDaoConfig,
+    TAccountProposal,
     TAccountCampaign,
     TAccountEscrowTokenAccount,
     TAccountDestination,
@@ -326,8 +324,9 @@ export type ParsedEmergencyWithdrawInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    authority: TAccountMetas[0];
-    daoConfig: TAccountMetas[1];
+    daoConfig: TAccountMetas[0];
+    /** The passed proposal that authorizes this drain */
+    proposal: TAccountMetas[1];
     campaign: TAccountMetas[2];
     escrowTokenAccount: TAccountMetas[3];
     /** Destination must be the canonical DAO treasury token account */
@@ -358,8 +357,8 @@ export function parseEmergencyWithdrawInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      authority: getNextAccount(),
       daoConfig: getNextAccount(),
+      proposal: getNextAccount(),
       campaign: getNextAccount(),
       escrowTokenAccount: getNextAccount(),
       destination: getNextAccount(),

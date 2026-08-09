@@ -27,13 +27,16 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
-  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
-import { findDaoConfigPda, findGovTokenStatePda } from "../pdas";
+import {
+  findDaoConfigPda,
+  findGovTokenStatePda,
+  findMintAuthorityPdaPda,
+} from "../pdas";
 import { FYDAO_PROGRAM_ADDRESS } from "../programs";
 import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
@@ -79,8 +82,7 @@ export type MintGovernanceTokensInstruction<
         ? WritableAccount<TAccountDestination>
         : TAccountDestination,
       TAccountMintAuthority extends string
-        ? ReadonlySignerAccount<TAccountMintAuthority> &
-            AccountSignerMeta<TAccountMintAuthority>
+        ? ReadonlyAccount<TAccountMintAuthority>
         : TAccountMintAuthority,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
@@ -142,7 +144,12 @@ export type MintGovernanceTokensAsyncInput<
   govTokenState?: Address<TAccountGovTokenState>;
   governanceMint: Address<TAccountGovernanceMint>;
   destination: Address<TAccountDestination>;
-  mintAuthority: TransactionSigner<TAccountMintAuthority>;
+  /**
+   * Program PDA that is the governance mint's MintTo authority (set at
+   * `initialize_governance_token`). Minting is only possible via this
+   * instruction, so the supply cap cannot be bypassed (C5/M10).
+   */
+  mintAuthority?: Address<TAccountMintAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
   amount: MintGovernanceTokensInstructionDataArgs["amount"];
 };
@@ -207,6 +214,9 @@ export async function getMintGovernanceTokensInstructionAsync<
   if (!accounts.govTokenState.value) {
     accounts.govTokenState.value = await findGovTokenStatePda();
   }
+  if (!accounts.mintAuthority.value) {
+    accounts.mintAuthority.value = await findMintAuthorityPdaPda();
+  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
@@ -253,7 +263,12 @@ export type MintGovernanceTokensInput<
   govTokenState: Address<TAccountGovTokenState>;
   governanceMint: Address<TAccountGovernanceMint>;
   destination: Address<TAccountDestination>;
-  mintAuthority: TransactionSigner<TAccountMintAuthority>;
+  /**
+   * Program PDA that is the governance mint's MintTo authority (set at
+   * `initialize_governance_token`). Minting is only possible via this
+   * instruction, so the supply cap cannot be bypassed (C5/M10).
+   */
+  mintAuthority: Address<TAccountMintAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
   amount: MintGovernanceTokensInstructionDataArgs["amount"];
 };
@@ -353,6 +368,11 @@ export type ParsedMintGovernanceTokensInstruction<
     govTokenState: TAccountMetas[2];
     governanceMint: TAccountMetas[3];
     destination: TAccountMetas[4];
+    /**
+     * Program PDA that is the governance mint's MintTo authority (set at
+     * `initialize_governance_token`). Minting is only possible via this
+     * instruction, so the supply cap cannot be bypassed (C5/M10).
+     */
     mintAuthority: TAccountMetas[5];
     tokenProgram: TAccountMetas[6];
   };

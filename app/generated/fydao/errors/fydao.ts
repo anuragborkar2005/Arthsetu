@@ -62,8 +62,20 @@ export const FYDAO_ERROR__INVALID_STRING_LENGTH = 0x1785; // 6021
 export const FYDAO_ERROR__CAMPAIGN_ALREADY_LIVE = 0x1786; // 6022
 /** EmergencyWithdrawn: Campaign has been emergency withdrawn */
 export const FYDAO_ERROR__EMERGENCY_WITHDRAWN = 0x1787; // 6023
+/** AlreadyUnlocked: Voting power has already been unlocked */
+export const FYDAO_ERROR__ALREADY_UNLOCKED = 0x1788; // 6024
+/** VotesStillLocked: Voting power is still locked until the proposal reaches a final state */
+export const FYDAO_ERROR__VOTES_STILL_LOCKED = 0x1789; // 6025
+/** ActionMismatch: Proposal action does not match the requested operation */
+export const FYDAO_ERROR__ACTION_MISMATCH = 0x178a; // 6026
+/** OnlyGenesis: Only the genesis authority can initialize the DAO */
+export const FYDAO_ERROR__ONLY_GENESIS = 0x178b; // 6027
+/** InvalidMintAuthority: Current signer is not the governance mint's mint authority */
+export const FYDAO_ERROR__INVALID_MINT_AUTHORITY = 0x178c; // 6028
 
 export type FydaoError =
+  | typeof FYDAO_ERROR__ACTION_MISMATCH
+  | typeof FYDAO_ERROR__ALREADY_UNLOCKED
   | typeof FYDAO_ERROR__ALREADY_VOTED
   | typeof FYDAO_ERROR__CAMPAIGN_ALREADY_LIVE
   | typeof FYDAO_ERROR__CAMPAIGN_NOT_LIVE
@@ -72,6 +84,7 @@ export type FydaoError =
   | typeof FYDAO_ERROR__INSUFFICIENT_FUNDS
   | typeof FYDAO_ERROR__INVALID_AMOUNT
   | typeof FYDAO_ERROR__INVALID_MILESTONE_ID
+  | typeof FYDAO_ERROR__INVALID_MINT_AUTHORITY
   | typeof FYDAO_ERROR__INVALID_PROPOSAL_STATE
   | typeof FYDAO_ERROR__INVALID_STRING_LENGTH
   | typeof FYDAO_ERROR__INVALID_SUPPORT
@@ -80,11 +93,13 @@ export type FydaoError =
   | typeof FYDAO_ERROR__ONLY_AUTHORITY
   | typeof FYDAO_ERROR__ONLY_CREATOR
   | typeof FYDAO_ERROR__ONLY_DAO
+  | typeof FYDAO_ERROR__ONLY_GENESIS
   | typeof FYDAO_ERROR__OVERFLOW
   | typeof FYDAO_ERROR__PROPOSAL_DID_NOT_PASS
   | typeof FYDAO_ERROR__PROPOSAL_THRESHOLD_NOT_MET
   | typeof FYDAO_ERROR__QUORUM_NOT_REACHED
   | typeof FYDAO_ERROR__TIMELOCK_NOT_EXPIRED
+  | typeof FYDAO_ERROR__VOTES_STILL_LOCKED
   | typeof FYDAO_ERROR__VOTING_ENDED
   | typeof FYDAO_ERROR__VOTING_NOT_STARTED
   | typeof FYDAO_ERROR__VOTING_STILL_ACTIVE;
@@ -92,6 +107,8 @@ export type FydaoError =
 let fydaoErrorMessages: Record<FydaoError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   fydaoErrorMessages = {
+    [FYDAO_ERROR__ACTION_MISMATCH]: `Proposal action does not match the requested operation`,
+    [FYDAO_ERROR__ALREADY_UNLOCKED]: `Voting power has already been unlocked`,
     [FYDAO_ERROR__ALREADY_VOTED]: `Already voted on this proposal`,
     [FYDAO_ERROR__CAMPAIGN_ALREADY_LIVE]: `Campaign already live`,
     [FYDAO_ERROR__CAMPAIGN_NOT_LIVE]: `Campaign is not live`,
@@ -100,6 +117,7 @@ if (process.env.NODE_ENV !== "production") {
     [FYDAO_ERROR__INSUFFICIENT_FUNDS]: `Insufficient funds in escrow`,
     [FYDAO_ERROR__INVALID_AMOUNT]: `Amount must be greater than zero`,
     [FYDAO_ERROR__INVALID_MILESTONE_ID]: `Invalid milestone id`,
+    [FYDAO_ERROR__INVALID_MINT_AUTHORITY]: `Current signer is not the governance mint's mint authority`,
     [FYDAO_ERROR__INVALID_PROPOSAL_STATE]: `Proposal is not in the expected state`,
     [FYDAO_ERROR__INVALID_STRING_LENGTH]: `Invalid string length`,
     [FYDAO_ERROR__INVALID_SUPPORT]: `Invalid vote support value (must be 0, 1 or 2)`,
@@ -108,11 +126,13 @@ if (process.env.NODE_ENV !== "production") {
     [FYDAO_ERROR__ONLY_AUTHORITY]: `Only the protocol authority can call this`,
     [FYDAO_ERROR__ONLY_CREATOR]: `Only the campaign creator can call this`,
     [FYDAO_ERROR__ONLY_DAO]: `Only the DAO / Timelock can call this`,
+    [FYDAO_ERROR__ONLY_GENESIS]: `Only the genesis authority can initialize the DAO`,
     [FYDAO_ERROR__OVERFLOW]: `Arithmetic overflow`,
     [FYDAO_ERROR__PROPOSAL_DID_NOT_PASS]: `Proposal did not pass`,
     [FYDAO_ERROR__PROPOSAL_THRESHOLD_NOT_MET]: `Proposal threshold not met`,
     [FYDAO_ERROR__QUORUM_NOT_REACHED]: `Quorum not reached`,
     [FYDAO_ERROR__TIMELOCK_NOT_EXPIRED]: `Timelock delay has not passed yet`,
+    [FYDAO_ERROR__VOTES_STILL_LOCKED]: `Voting power is still locked until the proposal reaches a final state`,
     [FYDAO_ERROR__VOTING_ENDED]: `Voting period has ended`,
     [FYDAO_ERROR__VOTING_NOT_STARTED]: `Voting has not started yet`,
     [FYDAO_ERROR__VOTING_STILL_ACTIVE]: `Voting is still active`,

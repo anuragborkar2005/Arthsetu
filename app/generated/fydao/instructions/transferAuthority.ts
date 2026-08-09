@@ -10,15 +10,12 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressDecoder,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   transformEncoder,
   type AccountMeta,
-  type AccountSignerMeta,
   type Address,
   type FixedSizeCodec,
   type FixedSizeDecoder,
@@ -26,9 +23,7 @@ import {
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
-  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
 import { findDaoConfigPda } from "../pdas";
@@ -47,37 +42,32 @@ export function getTransferAuthorityDiscriminatorBytes() {
 
 export type TransferAuthorityInstruction<
   TProgram extends string = typeof FYDAO_PROGRAM_ADDRESS,
-  TAccountAuthority extends string | AccountMeta<string> = string,
   TAccountDaoConfig extends string | AccountMeta<string> = string,
+  TAccountProposal extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountAuthority extends string
-        ? ReadonlySignerAccount<TAccountAuthority> &
-            AccountSignerMeta<TAccountAuthority>
-        : TAccountAuthority,
       TAccountDaoConfig extends string
         ? WritableAccount<TAccountDaoConfig>
         : TAccountDaoConfig,
+      TAccountProposal extends string
+        ? WritableAccount<TAccountProposal>
+        : TAccountProposal,
       ...TRemainingAccounts,
     ]
   >;
 
 export type TransferAuthorityInstructionData = {
   discriminator: ReadonlyUint8Array;
-  newAuthority: Address;
 };
 
-export type TransferAuthorityInstructionDataArgs = { newAuthority: Address };
+export type TransferAuthorityInstructionDataArgs = {};
 
 export function getTransferAuthorityInstructionDataEncoder(): FixedSizeEncoder<TransferAuthorityInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["newAuthority", getAddressEncoder()],
-    ]),
+    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
     (value) => ({ ...value, discriminator: TRANSFER_AUTHORITY_DISCRIMINATOR }),
   );
 }
@@ -85,7 +75,6 @@ export function getTransferAuthorityInstructionDataEncoder(): FixedSizeEncoder<T
 export function getTransferAuthorityInstructionDataDecoder(): FixedSizeDecoder<TransferAuthorityInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["newAuthority", getAddressDecoder()],
   ]);
 }
 
@@ -100,26 +89,26 @@ export function getTransferAuthorityInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type TransferAuthorityAsyncInput<
-  TAccountAuthority extends string = string,
   TAccountDaoConfig extends string = string,
+  TAccountProposal extends string = string,
 > = {
-  authority: TransactionSigner<TAccountAuthority>;
   daoConfig?: Address<TAccountDaoConfig>;
-  newAuthority: TransferAuthorityInstructionDataArgs["newAuthority"];
+  /** The passed proposal that authorizes this authority transfer */
+  proposal: Address<TAccountProposal>;
 };
 
 export async function getTransferAuthorityInstructionAsync<
-  TAccountAuthority extends string,
   TAccountDaoConfig extends string,
+  TAccountProposal extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
-  input: TransferAuthorityAsyncInput<TAccountAuthority, TAccountDaoConfig>,
+  input: TransferAuthorityAsyncInput<TAccountDaoConfig, TAccountProposal>,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
   TransferAuthorityInstruction<
     TProgramAddress,
-    TAccountAuthority,
-    TAccountDaoConfig
+    TAccountDaoConfig,
+    TAccountProposal
   >
 > {
   // Program address.
@@ -127,16 +116,13 @@ export async function getTransferAuthorityInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
     daoConfig: { value: input.daoConfig ?? null, isWritable: true },
+    proposal: { value: input.proposal ?? null, isWritable: true },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
-
-  // Original args.
-  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.daoConfig.value) {
@@ -146,71 +132,64 @@ export async function getTransferAuthorityInstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.daoConfig),
+      getAccountMeta(accounts.proposal),
     ],
-    data: getTransferAuthorityInstructionDataEncoder().encode(
-      args as TransferAuthorityInstructionDataArgs,
-    ),
+    data: getTransferAuthorityInstructionDataEncoder().encode({}),
     programAddress,
   } as TransferAuthorityInstruction<
     TProgramAddress,
-    TAccountAuthority,
-    TAccountDaoConfig
+    TAccountDaoConfig,
+    TAccountProposal
   >);
 }
 
 export type TransferAuthorityInput<
-  TAccountAuthority extends string = string,
   TAccountDaoConfig extends string = string,
+  TAccountProposal extends string = string,
 > = {
-  authority: TransactionSigner<TAccountAuthority>;
   daoConfig: Address<TAccountDaoConfig>;
-  newAuthority: TransferAuthorityInstructionDataArgs["newAuthority"];
+  /** The passed proposal that authorizes this authority transfer */
+  proposal: Address<TAccountProposal>;
 };
 
 export function getTransferAuthorityInstruction<
-  TAccountAuthority extends string,
   TAccountDaoConfig extends string,
+  TAccountProposal extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
 >(
-  input: TransferAuthorityInput<TAccountAuthority, TAccountDaoConfig>,
+  input: TransferAuthorityInput<TAccountDaoConfig, TAccountProposal>,
   config?: { programAddress?: TProgramAddress },
 ): TransferAuthorityInstruction<
   TProgramAddress,
-  TAccountAuthority,
-  TAccountDaoConfig
+  TAccountDaoConfig,
+  TAccountProposal
 > {
   // Program address.
   const programAddress = config?.programAddress ?? FYDAO_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: false },
     daoConfig: { value: input.daoConfig ?? null, isWritable: true },
+    proposal: { value: input.proposal ?? null, isWritable: true },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.daoConfig),
+      getAccountMeta(accounts.proposal),
     ],
-    data: getTransferAuthorityInstructionDataEncoder().encode(
-      args as TransferAuthorityInstructionDataArgs,
-    ),
+    data: getTransferAuthorityInstructionDataEncoder().encode({}),
     programAddress,
   } as TransferAuthorityInstruction<
     TProgramAddress,
-    TAccountAuthority,
-    TAccountDaoConfig
+    TAccountDaoConfig,
+    TAccountProposal
   >);
 }
 
@@ -220,8 +199,9 @@ export type ParsedTransferAuthorityInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    authority: TAccountMetas[0];
-    daoConfig: TAccountMetas[1];
+    daoConfig: TAccountMetas[0];
+    /** The passed proposal that authorizes this authority transfer */
+    proposal: TAccountMetas[1];
   };
   data: TransferAuthorityInstructionData;
 };
@@ -246,7 +226,7 @@ export function parseTransferAuthorityInstruction<
   };
   return {
     programAddress: instruction.programAddress,
-    accounts: { authority: getNextAccount(), daoConfig: getNextAccount() },
+    accounts: { daoConfig: getNextAccount(), proposal: getNextAccount() },
     data: getTransferAuthorityInstructionDataDecoder().decode(instruction.data),
   };
 }

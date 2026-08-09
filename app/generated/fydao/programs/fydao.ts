@@ -26,7 +26,6 @@ import {
   parseDelegateVotesInstruction,
   parseDonateInstruction,
   parseEmergencyWithdrawInstruction,
-  parseExecuteProposalInstruction,
   parseInitializeDaoInstruction,
   parseInitializeGovernanceTokenInstruction,
   parseMintGovernanceTokensInstruction,
@@ -35,6 +34,7 @@ import {
   parseReleaseMilestoneInstruction,
   parseSetPausedInstruction,
   parseTransferAuthorityInstruction,
+  parseUnlockVotesInstruction,
   type ParsedAcceptAuthorityInstruction,
   type ParsedApproveAndGoLiveInstruction,
   type ParsedCancelProposalInstruction,
@@ -44,7 +44,6 @@ import {
   type ParsedDelegateVotesInstruction,
   type ParsedDonateInstruction,
   type ParsedEmergencyWithdrawInstruction,
-  type ParsedExecuteProposalInstruction,
   type ParsedInitializeDaoInstruction,
   type ParsedInitializeGovernanceTokenInstruction,
   type ParsedMintGovernanceTokensInstruction,
@@ -53,6 +52,7 @@ import {
   type ParsedReleaseMilestoneInstruction,
   type ParsedSetPausedInstruction,
   type ParsedTransferAuthorityInstruction,
+  type ParsedUnlockVotesInstruction,
 } from "../instructions";
 
 export const FYDAO_PROGRAM_ADDRESS =
@@ -152,7 +152,6 @@ export enum FydaoInstruction {
   DelegateVotes,
   Donate,
   EmergencyWithdraw,
-  ExecuteProposal,
   InitializeDao,
   InitializeGovernanceToken,
   MintGovernanceTokens,
@@ -161,6 +160,7 @@ export enum FydaoInstruction {
   ReleaseMilestone,
   SetPaused,
   TransferAuthority,
+  UnlockVotes,
 }
 
 export function identifyFydaoInstruction(
@@ -270,17 +270,6 @@ export function identifyFydaoInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([186, 60, 116, 133, 108, 128, 111, 28]),
-      ),
-      0,
-    )
-  ) {
-    return FydaoInstruction.ExecuteProposal;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([128, 226, 96, 90, 39, 56, 24, 196]),
       ),
       0,
@@ -365,6 +354,17 @@ export function identifyFydaoInstruction(
   ) {
     return FydaoInstruction.TransferAuthority;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([31, 4, 235, 111, 176, 15, 112, 106]),
+      ),
+      0,
+    )
+  ) {
+    return FydaoInstruction.UnlockVotes;
+  }
   throw new Error(
     "The provided instruction could not be identified as a fydao instruction.",
   );
@@ -401,9 +401,6 @@ export type ParsedFydaoInstruction<
       instructionType: FydaoInstruction.EmergencyWithdraw;
     } & ParsedEmergencyWithdrawInstruction<TProgram>)
   | ({
-      instructionType: FydaoInstruction.ExecuteProposal;
-    } & ParsedExecuteProposalInstruction<TProgram>)
-  | ({
       instructionType: FydaoInstruction.InitializeDao;
     } & ParsedInitializeDaoInstruction<TProgram>)
   | ({
@@ -426,7 +423,10 @@ export type ParsedFydaoInstruction<
     } & ParsedSetPausedInstruction<TProgram>)
   | ({
       instructionType: FydaoInstruction.TransferAuthority;
-    } & ParsedTransferAuthorityInstruction<TProgram>);
+    } & ParsedTransferAuthorityInstruction<TProgram>)
+  | ({
+      instructionType: FydaoInstruction.UnlockVotes;
+    } & ParsedUnlockVotesInstruction<TProgram>);
 
 export function parseFydaoInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -496,13 +496,6 @@ export function parseFydaoInstruction<TProgram extends string>(
         ...parseEmergencyWithdrawInstruction(instruction),
       };
     }
-    case FydaoInstruction.ExecuteProposal: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: FydaoInstruction.ExecuteProposal,
-        ...parseExecuteProposalInstruction(instruction),
-      };
-    }
     case FydaoInstruction.InitializeDao: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -557,6 +550,13 @@ export function parseFydaoInstruction<TProgram extends string>(
       return {
         instructionType: FydaoInstruction.TransferAuthority,
         ...parseTransferAuthorityInstruction(instruction),
+      };
+    }
+    case FydaoInstruction.UnlockVotes: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: FydaoInstruction.UnlockVotes,
+        ...parseUnlockVotesInstruction(instruction),
       };
     }
     default:
