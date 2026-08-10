@@ -43,7 +43,7 @@ Review scope: `anchor/programs/fydao` (Anchor 1.1.2, SPL Token). Status as of re
 - **L3 resolved.** Every state-changing handler emits an Anchor `#[event]` (20 events total: `DaoInitialized`, `Donated`, `MilestoneReleased`, `EmergencyWithdrawn`, `RefundClaimed`, `ProposalCreated`, `VoteCast`, `VotesUnlocked`, `ProposalQueued`, `ProposalCanceled`, `ProposalExpired`, `ProposalExecuted`, `AuthorityNominated`, `AuthorityTransferred`, `DaoPaused`, …). Off-chain indexers can subscribe to typed logs instead of parsing `msg!`.
 - **L4 resolved (partial).** `release_milestone` closes the `Milestone` PDA (rent to the campaign account) and `unlock_votes` closes the `VoteRecord` PDA (rent back to the voter). `Campaign`/`Proposal`/`GovernanceTokenState` PDAs remain open by design (their lifetime spans the protocol; see L4 section).
 
-**Still open** — see sections below: H8, M5.
+**Still open** — see section below: M5 (only the oracle layer remains; the on-chain verifier gate is in place and tested).
 
 Severity scale: Critical > High > Medium > Low.
 
@@ -63,12 +63,12 @@ Severity scale: Critical > High > Medium > Low.
 | H5 | High | Governance mint's `MintTo` authority transferred to a program PDA (sole minter) | `initialize_governance_token.rs`, `mint_governance_tokens.rs` | **Resolved** |
 | H6 | High | Pause enforcement across handlers | `set_paused.rs`, `emergency_withdraw.rs`, `approve_and_go_live.rs`, `propose_milestone.rs` | **Resolved** |
 | H7 | Medium | Negative/zero delays and invalid quorum accepted | `initialize_dao.rs:40-43` | **Resolved** |
-| H8 | Medium | No on-chain integration tests (TS "tests" mutate local objects; Rust tests are unit-only) | `anchor/tests/*`, `anchor/programs/fydao/tests/*` | Open |
+| H8 | Medium | On-chain integration tests submit real transactions to the program on a real SVM (`integration_litesvm.rs`: DAO init → governance mint → campaign create → DAO go-live → foreign-verifier rejection (M5) → donation gate → escrow funding cap → milestone attestation → vote unlock → governance release) | `anchor/programs/fydao/tests/integration_litesvm.rs` | **Resolved** |
 | M1 | Medium | Governance token metadata never created | `initialize_governance_token.rs` | **Resolved** |
 | M2 | Medium | `delegate_votes` is a no-op | removed (`instructions/delegate_votes.rs`, `lib.rs`, client) | **Resolved** |
 | M3 | Medium | `ProposalAction` is typed, decoded, and executed by the action triggers | `create_proposal.rs`, `release_milestone.rs`, `approve_and_go_live.rs`, `emergency_withdraw.rs`, `transfer_authority.rs` | **Resolved** |
 | M4 | Medium | Donors have no refund/claim; emergency funds go to a DAO treasury, not donors | `donate.rs`, `claim_refund.rs`, `donation_record.rs` | **Resolved** |
-| M5 | Medium | Milestone `proof_cid` is self-attested, unverifiable on-chain | `propose_milestone.rs` | Open |
+| M5 | Medium | Milestone `proof_cid` is self-attested, unverifiable on-chain | `propose_milestone.rs`, `create_campaign.rs` | **Resolved** (oracle residual) |
 | M6 | Medium | `emergency_withdrawn` enforced in `donate`, `release_milestone`, and `propose_milestone`; `total_deposited` adjusted on withdraw | `donate.rs`, `release_milestone.rs`, `propose_milestone.rs`, `emergency_withdraw.rs` | **Resolved** |
 | M7 | Medium | Emergency-withdraw destination constrained to `dao_config.treasury` | `emergency_withdraw.rs:27-29` | **Resolved** |
 | M8 | Medium | Program ID mismatch: placeholder `declare_id!` vs `Anchor.toml` `vault` ID | `lib.rs:9`, `Anchor.toml:8` | **Resolved** |
@@ -184,10 +184,12 @@ Operational note: this requires the Metaplex Token Metadata program (`metaqbxxUe
 
 Remaining policy note: `emergency_withdraw` still moves the (capped) voted amount to the treasury; `claim_refund` is **not** pro-rata across donors and there is no queue — the escrow is first-come, first-clawed within each donor's own recorded share. That is a deliberate prototype scope; a production version would likely split the drain remainder across donors on-chain.
 
-### M5 — Milestone proofs are self-attested
+### M5 — Milestone proofs are self-attested ✅
 `proof_cid` is set by the creator and stored. Nothing verifies the CID or links the release amount to any off-chain deliverable. Release is now a **DAO-governed decision** (C3), which reduces the single-key risk, but the proof itself remains unverifiable on-chain.
 
-**Status: Open (oracle-dependent).** Closing this requires an oracle/attestation layer (e.g. a trusted verifier signing the CID, or a decentralized review protocol) that the prototype intentionally does not include. The honest framing is: the DAO votes on whether to release, and the `proof_cid` is evidence for the voters — not a trustless guarantee.
+**Fixed (verifier gate).** Every campaign now names a designated `verifier` at creation (`create_campaign.rs`), endorsed by the DAO's `ApproveAndGoLive` approval. `propose_milestone` requires that verifier to sign (`constraint = campaign.verifier == verifier.key() @ FydaoError::InvalidVerifier`, `propose_milestone.rs:29-32`) and records `verified_by`/`verified_at` on the milestone plus `MilestoneProposed` event payload. The attestation is therefore a first-class on-chain fact — a foreign/attacker verifier is rejected (asserted on-chain in `integration_litesvm.rs`). The release itself remains DAO-vote-gated (C3), so the verifier can only vouch for the deliverable, never release funds.
+
+**Status: Resolved (oracle residual).** Closing the residual — trusting the verifier without an external reputation layer — requires an oracle/attestation layer (e.g. a trusted verifier signing the CID, or a decentralized review protocol) that the prototype intentionally does not include. The honest framing is: the DAO votes on whether to release, the designated verifier attests the deliverable, and the `proof_cid` is evidence for the voters — not a trustless guarantee.
 
 ### M6 — `emergency_withdrawn` enforced across all campaign write paths ✅
 **Fixed (enforcement).** `donate.rs`, `release_milestone.rs`, and `propose_milestone.rs` all reject once `campaign.emergency_withdrawn` is true, using the dedicated `EmergencyWithdrawn` error (L6). After a drain the campaign is frozen: no new donations, no milestone proposals, no releases (except the donor `claim_refund` clawback, which is the intended post-drain path).
@@ -258,8 +260,8 @@ Remaining by design: `Campaign` (lives for the campaign's lifetime and is delibe
 10. ~~Adjust `total_deposited` on emergency withdraw~~ — **done**: `emergency_withdraw` applies `saturating_sub(amount)`, so `total_deposited` tracks the net escrow (M6 bookkeeping).
 11. ~~Constrain the emergency-withdraw destination~~ — **done** (M7): pinned to `dao_config.treasury`.
 12. ~~Make authority transfer two-step~~ — **done** (M9): DAO-gated `transfer_authority` (step 1) → `accept_authority` (step 2, signed by the new key).
-13. Write real on-chain integration tests (the current TS suite never submits a transaction to the program). Add regression tests for the full proposal lifecycle (create → vote → queue → execute), the pause/emergency-withdraw/claim-refund paths, and the cast_vote→unlock_votes lock lifecycle. (H8 — still open.)
+13. ~~Write real on-chain integration tests~~ — **done** (H8): `anchor/programs/fydao/tests/integration_litesvm.rs` runs the full proposal lifecycle and the fund-flow gates against a real SVM via LiteSVM — DAO init, governance minting, campaign create, DAO go-live, M5 verifier enforcement, donation/quorum gates, escrow funding cap, milestone attestation, vote unlock, and governance release. The old TS suite that mutated local objects was dropped.
 
 **Nice to have:**
-14. ~~Implement metadata / strip dead interfaces~~ — **done**: `initialize_governance_token` creates real Metaplex metadata (M1) and `delegate_votes` was removed (M2). Remaining: milestone-verification hooks (M5, oracle-dependent) and pro-rata refund splitting.
+14. ~~Implement metadata / strip dead interfaces~~ — **done**: `initialize_governance_token` creates real Metaplex metadata (M1) and `delegate_votes` was removed (M2). Remaining nice-to-haves: an external oracle/reputation layer for the verifier (M5 residual) and pro-rata refund splitting.
 15. ~~Emit Anchor `#[event]`s, close accounts for rent reclaim~~ — **done**: 20 events emitted (L3); `Milestone` and `VoteRecord` PDAs are closed on their final use (L4).
