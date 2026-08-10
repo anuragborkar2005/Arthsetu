@@ -74,6 +74,8 @@ export const FYDAO_ERROR__ONLY_GENESIS = 0x178b; // 6027
 export const FYDAO_ERROR__INVALID_MINT_AUTHORITY = 0x178c; // 6028
 /** RefundNotAvailable: Refunds are only available after the campaign has been drained */
 export const FYDAO_ERROR__REFUND_NOT_AVAILABLE = 0x178d; // 6029
+/** InvalidVerifier: Only the designated campaign verifier can attest milestones */
+export const FYDAO_ERROR__INVALID_VERIFIER = 0x178e; // 6030
 
 export type FydaoError =
   | typeof FYDAO_ERROR__ACTION_MISMATCH
@@ -90,6 +92,7 @@ export type FydaoError =
   | typeof FYDAO_ERROR__INVALID_PROPOSAL_STATE
   | typeof FYDAO_ERROR__INVALID_STRING_LENGTH
   | typeof FYDAO_ERROR__INVALID_SUPPORT
+  | typeof FYDAO_ERROR__INVALID_VERIFIER
   | typeof FYDAO_ERROR__MILESTONE_ALREADY_RELEASED
   | typeof FYDAO_ERROR__NOT_ENOUGH_DEPOSITED
   | typeof FYDAO_ERROR__ONLY_AUTHORITY
@@ -124,6 +127,7 @@ if (process.env.NODE_ENV !== "production") {
     [FYDAO_ERROR__INVALID_PROPOSAL_STATE]: `Proposal is not in the expected state`,
     [FYDAO_ERROR__INVALID_STRING_LENGTH]: `Invalid string length`,
     [FYDAO_ERROR__INVALID_SUPPORT]: `Invalid vote support value (must be 0, 1 or 2)`,
+    [FYDAO_ERROR__INVALID_VERIFIER]: `Only the designated campaign verifier can attest milestones`,
     [FYDAO_ERROR__MILESTONE_ALREADY_RELEASED]: `Milestone already released`,
     [FYDAO_ERROR__NOT_ENOUGH_DEPOSITED]: `Not enough deposited funds for this milestone`,
     [FYDAO_ERROR__ONLY_AUTHORITY]: `Only the protocol authority can call this`,

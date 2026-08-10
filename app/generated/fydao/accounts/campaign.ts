@@ -62,6 +62,7 @@ export type Campaign = {
   bump: number;
   campaignId: bigint;
   creator: Address;
+  verifier: Address;
   escrowTokenAccount: Address;
   metadataCid: string;
   trustScore: bigint;
@@ -77,6 +78,7 @@ export type CampaignArgs = {
   bump: number;
   campaignId: number | bigint;
   creator: Address;
+  verifier: Address;
   escrowTokenAccount: Address;
   metadataCid: string;
   trustScore: number | bigint;
@@ -96,6 +98,7 @@ export function getCampaignEncoder(): Encoder<CampaignArgs> {
       ["bump", getU8Encoder()],
       ["campaignId", getU64Encoder()],
       ["creator", getAddressEncoder()],
+      ["verifier", getAddressEncoder()],
       ["escrowTokenAccount", getAddressEncoder()],
       ["metadataCid", addEncoderSizePrefix(getUtf8Encoder(), getU32Encoder())],
       ["trustScore", getU64Encoder()],
@@ -117,6 +120,7 @@ export function getCampaignDecoder(): Decoder<Campaign> {
     ["bump", getU8Decoder()],
     ["campaignId", getU64Decoder()],
     ["creator", getAddressDecoder()],
+    ["verifier", getAddressDecoder()],
     ["escrowTokenAccount", getAddressDecoder()],
     ["metadataCid", addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder())],
     ["trustScore", getU64Decoder()],

@@ -66,6 +66,8 @@ export type Milestone = {
   amount: bigint;
   released: boolean;
   proposedAt: bigint;
+  verifiedBy: Address;
+  verifiedAt: bigint;
   releasedAt: bigint;
 };
 
@@ -77,6 +79,8 @@ export type MilestoneArgs = {
   amount: number | bigint;
   released: boolean;
   proposedAt: number | bigint;
+  verifiedBy: Address;
+  verifiedAt: number | bigint;
   releasedAt: number | bigint;
 };
 
@@ -92,6 +96,8 @@ export function getMilestoneEncoder(): Encoder<MilestoneArgs> {
       ["amount", getU64Encoder()],
       ["released", getBooleanEncoder()],
       ["proposedAt", getI64Encoder()],
+      ["verifiedBy", getAddressEncoder()],
+      ["verifiedAt", getI64Encoder()],
       ["releasedAt", getI64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: MILESTONE_DISCRIMINATOR }),
@@ -109,6 +115,8 @@ export function getMilestoneDecoder(): Decoder<Milestone> {
     ["amount", getU64Decoder()],
     ["released", getBooleanDecoder()],
     ["proposedAt", getI64Decoder()],
+    ["verifiedBy", getAddressDecoder()],
+    ["verifiedAt", getI64Decoder()],
     ["releasedAt", getI64Decoder()],
   ]);
 }

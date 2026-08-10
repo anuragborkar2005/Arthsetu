@@ -33,6 +33,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -57,6 +58,7 @@ export type ProposeMilestoneInstruction<
   TAccountCreator extends string | AccountMeta<string> = string,
   TAccountDaoConfig extends string | AccountMeta<string> = string,
   TAccountCampaign extends string | AccountMeta<string> = string,
+  TAccountVerifier extends string | AccountMeta<string> = string,
   TAccountMilestone extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
@@ -75,6 +77,10 @@ export type ProposeMilestoneInstruction<
       TAccountCampaign extends string
         ? WritableAccount<TAccountCampaign>
         : TAccountCampaign,
+      TAccountVerifier extends string
+        ? ReadonlySignerAccount<TAccountVerifier> &
+            AccountSignerMeta<TAccountVerifier>
+        : TAccountVerifier,
       TAccountMilestone extends string
         ? WritableAccount<TAccountMilestone>
         : TAccountMilestone,
@@ -129,12 +135,20 @@ export type ProposeMilestoneAsyncInput<
   TAccountCreator extends string = string,
   TAccountDaoConfig extends string = string,
   TAccountCampaign extends string = string,
+  TAccountVerifier extends string = string,
   TAccountMilestone extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   creator: TransactionSigner<TAccountCreator>;
   daoConfig?: Address<TAccountDaoConfig>;
   campaign: Address<TAccountCampaign>;
+  /**
+   * The campaign's designated verifier, attesting the off-chain proof
+   * referenced by `proof_cid` (M5). The verifier is named at campaign
+   * creation and endorsed by the DAO approval, so its signature makes the
+   * attestation a first-class on-chain fact rather than pure self-attestation.
+   */
+  verifier: TransactionSigner<TAccountVerifier>;
   milestone: Address<TAccountMilestone>;
   systemProgram?: Address<TAccountSystemProgram>;
   proofCid: ProposeMilestoneInstructionDataArgs["proofCid"];
@@ -145,6 +159,7 @@ export async function getProposeMilestoneInstructionAsync<
   TAccountCreator extends string,
   TAccountDaoConfig extends string,
   TAccountCampaign extends string,
+  TAccountVerifier extends string,
   TAccountMilestone extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
@@ -153,6 +168,7 @@ export async function getProposeMilestoneInstructionAsync<
     TAccountCreator,
     TAccountDaoConfig,
     TAccountCampaign,
+    TAccountVerifier,
     TAccountMilestone,
     TAccountSystemProgram
   >,
@@ -163,6 +179,7 @@ export async function getProposeMilestoneInstructionAsync<
     TAccountCreator,
     TAccountDaoConfig,
     TAccountCampaign,
+    TAccountVerifier,
     TAccountMilestone,
     TAccountSystemProgram
   >
@@ -175,6 +192,7 @@ export async function getProposeMilestoneInstructionAsync<
     creator: { value: input.creator ?? null, isWritable: true },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     campaign: { value: input.campaign ?? null, isWritable: true },
+    verifier: { value: input.verifier ?? null, isWritable: false },
     milestone: { value: input.milestone ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -201,6 +219,7 @@ export async function getProposeMilestoneInstructionAsync<
       getAccountMeta(accounts.creator),
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.campaign),
+      getAccountMeta(accounts.verifier),
       getAccountMeta(accounts.milestone),
       getAccountMeta(accounts.systemProgram),
     ],
@@ -213,6 +232,7 @@ export async function getProposeMilestoneInstructionAsync<
     TAccountCreator,
     TAccountDaoConfig,
     TAccountCampaign,
+    TAccountVerifier,
     TAccountMilestone,
     TAccountSystemProgram
   >);
@@ -222,12 +242,20 @@ export type ProposeMilestoneInput<
   TAccountCreator extends string = string,
   TAccountDaoConfig extends string = string,
   TAccountCampaign extends string = string,
+  TAccountVerifier extends string = string,
   TAccountMilestone extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   creator: TransactionSigner<TAccountCreator>;
   daoConfig: Address<TAccountDaoConfig>;
   campaign: Address<TAccountCampaign>;
+  /**
+   * The campaign's designated verifier, attesting the off-chain proof
+   * referenced by `proof_cid` (M5). The verifier is named at campaign
+   * creation and endorsed by the DAO approval, so its signature makes the
+   * attestation a first-class on-chain fact rather than pure self-attestation.
+   */
+  verifier: TransactionSigner<TAccountVerifier>;
   milestone: Address<TAccountMilestone>;
   systemProgram?: Address<TAccountSystemProgram>;
   proofCid: ProposeMilestoneInstructionDataArgs["proofCid"];
@@ -238,6 +266,7 @@ export function getProposeMilestoneInstruction<
   TAccountCreator extends string,
   TAccountDaoConfig extends string,
   TAccountCampaign extends string,
+  TAccountVerifier extends string,
   TAccountMilestone extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof FYDAO_PROGRAM_ADDRESS,
@@ -246,6 +275,7 @@ export function getProposeMilestoneInstruction<
     TAccountCreator,
     TAccountDaoConfig,
     TAccountCampaign,
+    TAccountVerifier,
     TAccountMilestone,
     TAccountSystemProgram
   >,
@@ -255,6 +285,7 @@ export function getProposeMilestoneInstruction<
   TAccountCreator,
   TAccountDaoConfig,
   TAccountCampaign,
+  TAccountVerifier,
   TAccountMilestone,
   TAccountSystemProgram
 > {
@@ -266,6 +297,7 @@ export function getProposeMilestoneInstruction<
     creator: { value: input.creator ?? null, isWritable: true },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     campaign: { value: input.campaign ?? null, isWritable: true },
+    verifier: { value: input.verifier ?? null, isWritable: false },
     milestone: { value: input.milestone ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -289,6 +321,7 @@ export function getProposeMilestoneInstruction<
       getAccountMeta(accounts.creator),
       getAccountMeta(accounts.daoConfig),
       getAccountMeta(accounts.campaign),
+      getAccountMeta(accounts.verifier),
       getAccountMeta(accounts.milestone),
       getAccountMeta(accounts.systemProgram),
     ],
@@ -301,6 +334,7 @@ export function getProposeMilestoneInstruction<
     TAccountCreator,
     TAccountDaoConfig,
     TAccountCampaign,
+    TAccountVerifier,
     TAccountMilestone,
     TAccountSystemProgram
   >);
@@ -315,8 +349,15 @@ export type ParsedProposeMilestoneInstruction<
     creator: TAccountMetas[0];
     daoConfig: TAccountMetas[1];
     campaign: TAccountMetas[2];
-    milestone: TAccountMetas[3];
-    systemProgram: TAccountMetas[4];
+    /**
+     * The campaign's designated verifier, attesting the off-chain proof
+     * referenced by `proof_cid` (M5). The verifier is named at campaign
+     * creation and endorsed by the DAO approval, so its signature makes the
+     * attestation a first-class on-chain fact rather than pure self-attestation.
+     */
+    verifier: TAccountMetas[3];
+    milestone: TAccountMetas[4];
+    systemProgram: TAccountMetas[5];
   };
   data: ProposeMilestoneInstructionData;
 };
@@ -329,7 +370,7 @@ export function parseProposeMilestoneInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedProposeMilestoneInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+  if (instruction.accounts.length < 6) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -345,6 +386,7 @@ export function parseProposeMilestoneInstruction<
       creator: getNextAccount(),
       daoConfig: getNextAccount(),
       campaign: getNextAccount(),
+      verifier: getNextAccount(),
       milestone: getNextAccount(),
       systemProgram: getNextAccount(),
     },

@@ -12,6 +12,7 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressDecoder,
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
@@ -114,11 +115,13 @@ export type CreateCampaignInstructionData = {
   discriminator: ReadonlyUint8Array;
   metadataCid: string;
   trustScore: bigint;
+  verifier: Address;
 };
 
 export type CreateCampaignInstructionDataArgs = {
   metadataCid: string;
   trustScore: number | bigint;
+  verifier: Address;
 };
 
 export function getCreateCampaignInstructionDataEncoder(): Encoder<CreateCampaignInstructionDataArgs> {
@@ -127,6 +130,7 @@ export function getCreateCampaignInstructionDataEncoder(): Encoder<CreateCampaig
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["metadataCid", addEncoderSizePrefix(getUtf8Encoder(), getU32Encoder())],
       ["trustScore", getU64Encoder()],
+      ["verifier", getAddressEncoder()],
     ]),
     (value) => ({ ...value, discriminator: CREATE_CAMPAIGN_DISCRIMINATOR }),
   );
@@ -137,6 +141,7 @@ export function getCreateCampaignInstructionDataDecoder(): Decoder<CreateCampaig
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["metadataCid", addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder())],
     ["trustScore", getU64Decoder()],
+    ["verifier", getAddressDecoder()],
   ]);
 }
 
@@ -174,6 +179,7 @@ export type CreateCampaignAsyncInput<
   rent?: Address<TAccountRent>;
   metadataCid: CreateCampaignInstructionDataArgs["metadataCid"];
   trustScore: CreateCampaignInstructionDataArgs["trustScore"];
+  verifier: CreateCampaignInstructionDataArgs["verifier"];
 };
 
 export async function getCreateCampaignInstructionAsync<
@@ -338,6 +344,7 @@ export type CreateCampaignInput<
   rent?: Address<TAccountRent>;
   metadataCid: CreateCampaignInstructionDataArgs["metadataCid"];
   trustScore: CreateCampaignInstructionDataArgs["trustScore"];
+  verifier: CreateCampaignInstructionDataArgs["verifier"];
 };
 
 export function getCreateCampaignInstruction<
