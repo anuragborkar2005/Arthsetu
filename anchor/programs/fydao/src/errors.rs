@@ -91,4 +91,7 @@ pub enum FydaoError {
 
     #[msg("Refunds are only available after the campaign has been drained")]
     RefundNotAvailable,
+
+    #[msg("Only the designated campaign verifier can attest milestones")]
+    InvalidVerifier,
 }

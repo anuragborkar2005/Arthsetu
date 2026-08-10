@@ -6,7 +6,7 @@ use crate::errors::FydaoError;
 use crate::state::*;
 
 #[derive(Accounts)]
-#[instruction(metadata_cid: String, trust_score: u64)]
+#[instruction(metadata_cid: String, trust_score: u64, verifier: Pubkey)]
 pub struct CreateCampaign<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -54,6 +54,7 @@ pub fn handler(
     ctx: Context<CreateCampaign>,
     metadata_cid: String,
     trust_score: u64,
+    verifier: Pubkey,
 ) -> Result<()> {
     require!(!ctx.accounts.dao_config.paused, FydaoError::DaoPaused);
     require!(
@@ -64,6 +65,14 @@ pub fn handler(
         trust_score <= 100,
         FydaoError::InvalidAmount
     );
+    // A campaign must name a real verifier; the DAO implicitly endorses this
+    // choice when it approves the campaign (`approve_and_go_live`). A default
+    // (zero) verifier would make `propose_milestone` un-callable, which is a
+    // fail-closed but likely unintended state.
+    require!(
+        verifier != Pubkey::default(),
+        FydaoError::InvalidVerifier
+    );
 
     let campaign_id = ctx.accounts.dao_config.campaign_count;
     let clock = Clock::get()?;
@@ -72,6 +81,7 @@ pub fn handler(
     campaign.bump = ctx.bumps.campaign;
     campaign.campaign_id = campaign_id;
     campaign.creator = ctx.accounts.creator.key();
+    campaign.verifier = verifier;
     campaign.escrow_token_account = ctx.accounts.escrow_token_account.key();
     campaign.metadata_cid = metadata_cid;
     campaign.trust_score = trust_score;
@@ -93,6 +103,7 @@ pub fn handler(
     emit!(CampaignCreated {
         campaign_id,
         creator: campaign.creator,
+        verifier: campaign.verifier,
         metadata_cid: campaign.metadata_cid.clone(),
         trust_score: campaign.trust_score,
     });

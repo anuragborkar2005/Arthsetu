@@ -20,6 +20,10 @@ pub struct Milestone {
     pub released: bool,
     // Timestamp when proposed
     pub proposed_at: i64,
+    // The campaign verifier that attested this milestone's proof (M5)
+    pub verified_by: Pubkey,
+    // Timestamp of the verifier's attestation (0 if never attested)
+    pub verified_at: i64,
     // Timestamp when released (0 if not yet)
     pub released_at: i64,
 }

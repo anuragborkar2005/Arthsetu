@@ -22,6 +22,15 @@ pub struct ProposeMilestone<'info> {
     )]
     pub campaign: Account<'info, Campaign>,
 
+    /// The campaign's designated verifier, attesting the off-chain proof
+    /// referenced by `proof_cid` (M5). The verifier is named at campaign
+    /// creation and endorsed by the DAO approval, so its signature makes the
+    /// attestation a first-class on-chain fact rather than pure self-attestation.
+    #[account(
+        constraint = campaign.verifier == verifier.key() @ FydaoError::InvalidVerifier
+    )]
+    pub verifier: Signer<'info>,
+
     #[account(
         init,
         payer = creator,
@@ -69,6 +78,8 @@ pub fn handler(
     milestone.amount = amount;
     milestone.released = false;
     milestone.proposed_at = clock.unix_timestamp;
+    milestone.verified_by = ctx.accounts.verifier.key();
+    milestone.verified_at = clock.unix_timestamp;
     milestone.released_at = 0;
 
     // Increment counter
@@ -83,6 +94,7 @@ pub fn handler(
         milestone_id,
         amount,
         proof_cid: milestone.proof_cid.clone(),
+        verified_by: milestone.verified_by,
     });
 
     msg!(

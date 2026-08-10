@@ -73,13 +73,16 @@ pub mod fydao {
     // Campaign Factory
     // ──────────────────────────────────────────────
 
-    /// Create a new fundraising campaign + its escrow vault
+    /// Create a new fundraising campaign + its escrow vault.
+    /// `verifier` names the key that must attest each milestone's `proof_cid`;
+    /// the DAO implicitly endorses this choice when it approves the campaign.
     pub fn create_campaign(
         ctx: Context<CreateCampaign>,
         metadata_cid: String,
         trust_score: u64,
+        verifier: Pubkey,
     ) -> Result<()> {
-        instructions::create_campaign::handler(ctx, metadata_cid, trust_score)
+        instructions::create_campaign::handler(ctx, metadata_cid, trust_score, verifier)
     }
 
     /// DAO / Timelock approves campaign → sets is_live = true
@@ -96,7 +99,8 @@ pub mod fydao {
         instructions::donate::handler(ctx, amount)
     }
 
-    /// Campaign creator proposes a milestone with proof CID
+    /// Campaign creator proposes a milestone with proof CID.
+    /// The campaign's designated verifier must co-sign, attesting the proof (M5).
     pub fn propose_milestone(
         ctx: Context<ProposeMilestone>,
         proof_cid: String,

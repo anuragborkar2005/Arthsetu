@@ -40,6 +40,7 @@ pub struct GovernanceTokensMinted {
 pub struct CampaignCreated {
     pub campaign_id: u64,
     pub creator: Pubkey,
+    pub verifier: Pubkey,
     pub metadata_cid: String,
     pub trust_score: u64,
 }
@@ -64,6 +65,7 @@ pub struct MilestoneProposed {
     pub milestone_id: u64,
     pub amount: u64,
     pub proof_cid: String,
+    pub verified_by: Pubkey,
 }
 
 #[event]

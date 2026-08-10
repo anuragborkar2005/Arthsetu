@@ -31,13 +31,19 @@ fn test_proposal_pda_seeds_derivation() {
     let program_id = Pubkey::new_unique();
     let proposal_id: u64 = 42;
 
-    let (pda, bump) = Pubkey::find_program_address(
-        &[Proposal::SEED, &proposal_id.to_le_bytes()],
-        &program_id,
-    );
+    let (pda, bump) =
+        Pubkey::find_program_address(&[Proposal::SEED, &proposal_id.to_le_bytes()], &program_id);
 
     assert_ne!(pda, Pubkey::default());
-    assert!(bump <= 255);
+    // The reported bump must reproduce the same PDA.
+    assert_eq!(
+        Pubkey::create_program_address(
+            &[Proposal::SEED, &proposal_id.to_le_bytes(), &[bump]],
+            &program_id
+        )
+        .unwrap(),
+        pda
+    );
 }
 
 #[test]
@@ -47,12 +53,28 @@ fn test_vote_record_pda_seeds_derivation() {
     let voter_pubkey = Pubkey::new_unique();
 
     let (pda, bump) = Pubkey::find_program_address(
-        &[VoteRecord::SEED, proposal_pda.as_ref(), voter_pubkey.as_ref()],
+        &[
+            VoteRecord::SEED,
+            proposal_pda.as_ref(),
+            voter_pubkey.as_ref(),
+        ],
         &program_id,
     );
 
     assert_ne!(pda, Pubkey::default());
-    assert!(bump <= 255);
+    assert_eq!(
+        Pubkey::create_program_address(
+            &[
+                VoteRecord::SEED,
+                proposal_pda.as_ref(),
+                voter_pubkey.as_ref(),
+                &[bump]
+            ],
+            &program_id,
+        )
+        .unwrap(),
+        pda
+    );
 }
 
 #[test]
@@ -74,26 +96,36 @@ fn test_vote_escrow_pda_derivation_is_stable() {
     assert_eq!(pda, pda2);
     assert_eq!(bump, bump2);
     assert_ne!(pda, Pubkey::default());
-    assert!(bump <= 255);
+    assert_eq!(
+        Pubkey::create_program_address(
+            &[VoteRecord::VOTE_ESCROW_SEED, voter_pubkey.as_ref(), &[bump]],
+            &program_id
+        )
+        .unwrap(),
+        pda
+    );
 }
 
 #[test]
 fn test_mint_authority_pda_derivation_is_stable() {
     let program_id = Pubkey::new_unique();
 
-    let (pda, bump) = Pubkey::find_program_address(
-        &[GovernanceTokenState::MINT_AUTHORITY_SEED],
-        &program_id,
-    );
-    let (pda2, bump2) = Pubkey::find_program_address(
-        &[GovernanceTokenState::MINT_AUTHORITY_SEED],
-        &program_id,
-    );
+    let (pda, bump) =
+        Pubkey::find_program_address(&[GovernanceTokenState::MINT_AUTHORITY_SEED], &program_id);
+    let (pda2, bump2) =
+        Pubkey::find_program_address(&[GovernanceTokenState::MINT_AUTHORITY_SEED], &program_id);
 
     assert_eq!(pda, pda2);
     assert_eq!(bump, bump2);
     assert_ne!(pda, Pubkey::default());
-    assert!(bump <= 255);
+    assert_eq!(
+        Pubkey::create_program_address(
+            &[GovernanceTokenState::MINT_AUTHORITY_SEED, &[bump]],
+            &program_id
+        )
+        .unwrap(),
+        pda
+    );
 }
 
 #[test]
@@ -119,7 +151,19 @@ fn test_donation_record_pda_derivation_is_stable() {
     assert_eq!(pda, pda2);
     assert_eq!(bump, bump2);
     assert_ne!(pda, Pubkey::default());
-    assert!(bump <= 255);
+    assert_eq!(
+        Pubkey::create_program_address(
+            &[
+                DonationRecord::SEED,
+                campaign.as_ref(),
+                donor.as_ref(),
+                &[bump]
+            ],
+            &program_id
+        )
+        .unwrap(),
+        pda
+    );
 }
 
 #[test]
@@ -149,12 +193,28 @@ fn test_governance_token_metadata_pda_derivation() {
     // M1: the metadata account must be the canonical Metaplex PDA.
     let mint = Pubkey::new_unique();
     let (pda, bump) = Pubkey::find_program_address(
-        &[b"metadata", anchor_spl::metadata::ID.as_ref(), mint.as_ref()],
+        &[
+            b"metadata",
+            anchor_spl::metadata::ID.as_ref(),
+            mint.as_ref(),
+        ],
         &anchor_spl::metadata::ID,
     );
 
     assert_ne!(pda, Pubkey::default());
-    assert!(bump <= 255);
+    assert_eq!(
+        Pubkey::create_program_address(
+            &[
+                b"metadata",
+                anchor_spl::metadata::ID.as_ref(),
+                mint.as_ref(),
+                &[bump]
+            ],
+            &anchor_spl::metadata::ID,
+        )
+        .unwrap(),
+        pda
+    );
 }
 
 #[test]
@@ -378,4 +438,75 @@ fn test_two_step_authority_transfer_flow() {
 
     assert_eq!(dao_config.authority, timelock_pda);
     assert_eq!(dao_config.pending_authority, Pubkey::default());
+}
+
+#[test]
+fn test_campaign_verifier_named_at_creation() {
+    // M5: a campaign records the verifier nominated at creation; it is part of
+    // the state the DAO implicitly endorses when approving the campaign.
+    let creator = Pubkey::new_unique();
+    let verifier = Pubkey::new_unique();
+
+    let campaign = Campaign {
+        bump: 255,
+        campaign_id: 0,
+        creator,
+        verifier,
+        escrow_token_account: Pubkey::new_unique(),
+        metadata_cid: "ipfs://cid".to_string(),
+        trust_score: 80,
+        is_live: false,
+        total_deposited: 0,
+        total_released: 0,
+        milestone_count: 0,
+        created_at: 1_700_000_000,
+        emergency_withdrawn: false,
+    };
+
+    assert_eq!(campaign.creator, creator);
+    assert_eq!(campaign.verifier, verifier);
+    // A zero verifier would make milestone attestation impossible (fail-closed).
+    assert_ne!(campaign.verifier, Pubkey::default());
+}
+
+#[test]
+fn test_milestone_records_verifier_attestation() {
+    // M5: a proposed milestone carries who attested it and when.
+    let campaign = Pubkey::new_unique();
+    let verifier = Pubkey::new_unique();
+    let proposed_at = 1_700_000_000i64;
+
+    let milestone = Milestone {
+        bump: 255,
+        campaign,
+        milestone_id: 0,
+        proof_cid: "ipfs://proof".to_string(),
+        amount: 500,
+        released: false,
+        proposed_at,
+        verified_by: verifier,
+        verified_at: proposed_at,
+        released_at: 0,
+    };
+
+    assert_eq!(milestone.campaign, campaign);
+    assert_eq!(milestone.verified_by, verifier);
+    assert_eq!(milestone.verified_at, proposed_at);
+    assert!(!milestone.released);
+}
+
+#[test]
+fn test_verifier_gate_rejects_foreign_signer() {
+    // M5: the propose_milestone accounts constraint only admits the campaign's
+    // designated verifier as the attesting signer.
+    let campaign_verifier = Pubkey::new_unique();
+    let attacker = Pubkey::new_unique();
+
+    // Mirrors `constraint = campaign.verifier == verifier.key()`.
+    let is_designated = |signer: &Pubkey| signer == &campaign_verifier;
+
+    assert!(is_designated(&campaign_verifier));
+    assert!(!is_designated(&attacker));
+    // A campaign whose verifier was left unset is un-attestable.
+    assert!(!is_designated(&Pubkey::default()));
 }
