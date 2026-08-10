@@ -1,76 +1,51 @@
-# Anchor Vault Program
+# fydao — Anchor workspace
 
-This template includes a simple SOL vault program built with [Anchor](https://www.anchor-lang.com/).
+The `fydao` program is a Solana fundraising DAO: on-chain campaigns with a stablecoin
+escrow, governed by a custom Governor (governance token, voted proposals, real
+timelock, proposal-gated fund movement).
 
-## Pre-deployed Program
+Program ID (placeholder): `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`
 
-The vault program is deployed on **devnet** at:
+## Program surface
 
-```
-F4jZpgbtTb6RWNWq6v35fUeiAsRJMrDczVPv9U23yXjB
-```
+| Group | Instructions |
+| --- | --- |
+| Protocol init | `initialize_dao` (genesis-gated, H1), `initialize_governance_token` (real Metaplex metadata, M1), `mint_governance_tokens` (capped against `mint.supply`, C5/H5) |
+| Campaigns | `create_campaign` (names the designated verifier, M5), `approve_and_go_live` (DAO-gated) |
+| Donations & milestones | `donate`, `propose_milestone` (verifier-gated, M5), `release_milestone` (DAO-gated), `emergency_withdraw` (DAO-gated → treasury, M7), `claim_refund` (post-drain clawback, M4) |
+| Governance | `create_proposal` (typed `ProposalAction`, vote-weight snapshot C2), `cast_vote` (escrow-locked, C2), `unlock_votes`, `queue_proposal` (real timelock, C4), `cancel_proposal`, `transfer_authority`/`accept_authority` (two-step, M9), `set_paused` (circuit breaker, H6) |
 
-You can interact with it immediately by connecting your wallet to devnet.
-
-## Deploying Your Own Program
-
-To deploy your own version of the program:
-
-### 1. Generate a new program keypair
-
-```bash
-cd anchor
-solana-keygen new -o target/deploy/vault-keypair.json
-```
-
-### 2. Get the new program ID
-
-```bash
-solana address -k target/deploy/vault-keypair.json
-```
-
-### 3. Update the program ID
-
-Update the program ID in these files:
-
-- `anchor/Anchor.toml` - Update `vault = "..."` under `[programs.devnet]`
-- `anchor/programs/vault/src/lib.rs` - Update `declare_id!("...")`
-
-### 4. Build and deploy
-
-```bash
-# Build the program
-anchor build
-
-# Get devnet SOL for deployment (~2 SOL needed)
-solana airdrop 2 --url devnet
-
-# Deploy to devnet
-anchor deploy --provider.cluster devnet
-```
-
-### 5. Regenerate the TypeScript client
-
-```bash
-cd ..
-npm run codama:js
-```
-
-This updates the generated client code in `app/generated/vault/` with your new program ID.
-
-## Program Overview
-
-The vault program allows users to:
-
-- **Deposit**: Send SOL to a personal vault PDA (Program Derived Address)
-- **Withdraw**: Retrieve all SOL from your vault
-
-Each user gets their own vault derived from their wallet address.
+Fund movement is **proposal-gated**: `release_milestone`, `approve_and_go_live`,
+`emergency_withdraw`, and `transfer_authority` are permissionless triggers that only act
+after a passed proposal has been queued and its timelock elapsed. No single key can move
+funds.
 
 ## Testing
 
-Run the Anchor tests:
+```bash
+anchor build --ignore-keys
+cargo test          # unit + PDA tests + LiteSVM on-chain integration tests
+cargo clippy --tests
+```
+
+- `tests/governance_and_proposal_tests.rs` — PDA derivation round-trips and proposal
+  lifecycle logic.
+- `tests/integration_litesvm.rs` — real-transaction integration suite on a real SVM
+  (LiteSVM): DAO init → minting → campaign create → go-live → verifier enforcement →
+  donation/quorum gates → escrow funding cap → milestone attestation → vote unlock →
+  governance release.
+
+## Docs
+
+- `Architecture.md` — architecture, trust model, governance ↔ campaign data flows, user stories.
+- `Security.md` — audit findings (C1–C5, H1–H8, M1–M10, L1–L6) and resolution status.
+
+## Deployment
 
 ```bash
-anchor test --skip-deploy
+anchor keys sync    # replace the placeholder program ID with a real keypair
+anchor build
+anchor deploy
 ```
+
+Set `GENESIS_AUTHORITY` in `src/lib.rs` to the deployer key before initializing the DAO.

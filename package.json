@@ -13,7 +13,7 @@
     "setup": "npm run anchor-build && npm run codama:js",
     "start": "next start"
   },
-  "description": "Next.js, Tailwind, @solana/kit, Anchor vault program",
+  "description": "Next.js, Tailwind, @solana/kit, Anchor fydao governance program",
   "keywords": [
     "anchor",
     "kit",
