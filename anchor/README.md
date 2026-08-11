@@ -8,12 +8,12 @@ Program ID (placeholder): `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`
 
 ## Program surface
 
-| Group | Instructions |
-| --- | --- |
-| Protocol init | `initialize_dao` (genesis-gated, H1), `initialize_governance_token` (real Metaplex metadata, M1), `mint_governance_tokens` (capped against `mint.supply`, C5/H5) |
-| Campaigns | `create_campaign` (names the designated verifier, M5), `approve_and_go_live` (DAO-gated) |
-| Donations & milestones | `donate`, `propose_milestone` (verifier-gated, M5), `release_milestone` (DAO-gated), `emergency_withdraw` (DAO-gated → treasury, M7), `claim_refund` (post-drain clawback, M4) |
-| Governance | `create_proposal` (typed `ProposalAction`, vote-weight snapshot C2), `cast_vote` (escrow-locked, C2), `unlock_votes`, `queue_proposal` (real timelock, C4), `cancel_proposal`, `transfer_authority`/`accept_authority` (two-step, M9), `set_paused` (circuit breaker, H6) |
+| Group                  | Instructions                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Protocol init          | `initialize_dao` (genesis-gated, H1), `initialize_governance_token` (real Metaplex metadata, M1), `mint_governance_tokens` (capped against `mint.supply`, C5/H5)                                                                                                          |
+| Campaigns              | `create_campaign` (names the designated verifier, M5), `approve_and_go_live` (DAO-gated)                                                                                                                                                                                  |
+| Donations & milestones | `donate`, `propose_milestone` (verifier-gated, M5), `release_milestone` (DAO-gated), `emergency_withdraw` (DAO-gated → treasury, M7), `claim_refund` (post-drain clawback, M4)                                                                                            |
+| Governance             | `create_proposal` (typed `ProposalAction`, vote-weight snapshot C2), `cast_vote` (escrow-locked, C2), `unlock_votes`, `queue_proposal` (real timelock, C4), `cancel_proposal`, `transfer_authority`/`accept_authority` (two-step, M9), `set_paused` (circuit breaker, H6) |
 
 Fund movement is **proposal-gated**: `release_milestone`, `approve_and_go_live`,
 `emergency_withdraw`, and `transfer_authority` are permissionless triggers that only act
