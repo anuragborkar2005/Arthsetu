@@ -42,7 +42,6 @@ function createModifyingSigner(
 ): TransactionModifyingSigner {
   return {
     address: session.account.address,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     modifyAndSignTransactions: (async (transactions: readonly unknown[]) => {
       const encoder = getTransactionEncoder();
       const decoder = getTransactionDecoder();
