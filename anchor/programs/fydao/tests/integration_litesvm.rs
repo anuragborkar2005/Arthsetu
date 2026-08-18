@@ -33,14 +33,14 @@ use spl_token_interface::state::{Account as TokenAccount, AccountState, Mint};
 
 use fydao::state::{Campaign, GovernanceTokenState, Milestone, Proposal, ProposalAction};
 
-const PROGRAM_ID: Address = address!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+const PROGRAM_ID: Address = address!("HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb");
 const TOKEN_PROGRAM: Address = address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 const ATA_PROGRAM: Address = address!("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 const SYSTEM_PROGRAM: Address = address!("11111111111111111111111111111111");
 const RENT_SYSVAR: Address = address!("SysvarRent111111111111111111111111111111111");
 
 /// Matches `GENESIS_AUTHORITY` in src/lib.rs (the local dev wallet pubkey).
-const GENESIS: Address = address!("34kp5qNiaYXB7fFQpZiYcur1SBr5ub6HQjsoC82ZD3uM");
+const GENESIS: Address = address!("HHPM2hamGMj2MNRxv76pJ1Zct4fKZhuDzBEy1tobhNoM");
 
 /// Anchor error codes start at 6000 and follow the variant order of
 /// `FydaoError` in src/errors.rs.

@@ -4,14 +4,14 @@
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-fydao = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
-
 [programs.devnet]
-fydao = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+fydao = "HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb"
+
+[programs.localnet]
+fydao = "HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

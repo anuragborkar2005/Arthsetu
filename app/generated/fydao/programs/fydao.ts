@@ -56,7 +56,7 @@ import {
 } from "../instructions";
 
 export const FYDAO_PROGRAM_ADDRESS =
-  "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS" as Address<"Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS">;
+  "HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb" as Address<"HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb">;
 
 export enum FydaoAccount {
   Campaign,
@@ -383,7 +383,7 @@ export function identifyFydaoInstruction(
 }
 
 export type ParsedFydaoInstruction<
-  TProgram extends string = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+  TProgram extends string = "HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb",
 > =
   | ({
       instructionType: FydaoInstruction.AcceptAuthority;

@@ -21,7 +21,7 @@ export const RENT_ADDRESS =
 
 /** Keypair that owns the on-chain program (single signer, from Anchor's id.json). */
 export const GENESIS_AUTHORITY =
-  "34kp5qNiaYXB7fFQpZiYcur1SBr5ub6HQjsoC82ZD3uM" as Address<"34kp5qNiaYXB7fFQpZiYcur1SBr5ub6HQjsoC82ZD3uM">;
+  "HHPM2hamGMj2MNRxv76pJ1Zct4fKZhuDzBEy1tobhNoM" as Address<"HHPM2hamGMj2MNRxv76pJ1Zct4fKZhuDzBEy1tobhNoM">;
 
 /** Real USDC on mainnet and devnet. */
 export const USDC_MINT =

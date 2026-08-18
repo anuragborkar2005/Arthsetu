@@ -7,7 +7,7 @@ pub mod state;
 use instructions::*;
 use state::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb");
 
 /// Genesis key allowed to bootstrap the DAO (`initialize_dao`). Fixes H1:
 /// `initialize_dao` can no longer be front-run, because only this key can
@@ -17,8 +17,8 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 /// wallet pubkey (the `[provider] wallet` in `Anchor.toml`) is pinned for the
 /// prototype.
 pub const GENESIS_AUTHORITY: Pubkey = Pubkey::new_from_array([
-    30, 173, 167, 136, 10, 96, 9, 97, 66, 104, 19, 238, 145, 202, 110, 48, 204, 13, 138, 78, 48, 99,
-    214, 151, 252, 75, 39, 33, 24, 2, 248, 228,
+    241, 237, 140, 186, 35, 65, 20, 111, 173, 109, 40, 111, 52, 255, 123, 27, 206, 153, 73, 219, 223,
+    59, 79, 120, 6, 13, 28, 4, 241, 231, 108, 84,
 ]);
 
 #[program]
