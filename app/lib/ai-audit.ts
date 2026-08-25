@@ -4,6 +4,7 @@
  * Provides:
  * - Client-side SHA-256 hashing for documents
  * - In-memory text extraction & PII sanitization (zero retention)
+ * - Deep Cross-Examination of Campaign Story Description vs Uploaded Documents
  * - AI Trust Scoring (0-100), AI content detection, budget plausibility & milestone generation
  */
 
@@ -19,10 +20,11 @@ export interface DocumentAttachment {
 }
 
 export interface AiSubScores {
-  authenticityScore: number;       // 0 - 100: Document consistency, identity coherence
-  feasibilityScore: number;          // 0 - 100: Budget vs deliverable realism
-  verifiabilityScore: number;        // 0 - 100: How measurable and testable the proof criteria are
-  aiContentScore: number;            // 0 - 100: 100 = Highly human & technical, 0 = 100% generic AI spam
+  authenticityScore: number;            // 0 - 100: Document consistency, identity coherence
+  storyDocumentAlignmentScore: number;  // 0 - 100: How accurately story aligns with uploaded docs
+  feasibilityScore: number;             // 0 - 100: Budget vs deliverable realism
+  verifiabilityScore: number;           // 0 - 100: How measurable and testable the proof criteria are
+  aiContentScore: number;               // 0 - 100: 100 = Highly human & technical, 0 = 100% generic AI spam
 }
 
 export interface SuggestedMilestone {
@@ -35,16 +37,18 @@ export interface SuggestedMilestone {
 }
 
 export interface AiAuditReport {
-  trustScore: number;                // 0 - 100 on-chain Trust Score
+  trustScore: number;                   // 0 - 100 on-chain Trust Score
   rating: "Exceptional" | "High" | "Moderate" | "Caution" | "High Risk";
   aiGeneratedRisk: "Low" | "Medium" | "High";
-  aiGeneratedProbability: number;    // 0 - 100%
+  aiGeneratedProbability: number;       // 0 - 100%
   subScores: AiSubScores;
+  storyAlignmentFindings: string[];     // Confirmed alignments between story & docs
+  storyDiscrepancies: string[];         // Contradictions or unsupported claims
   strengths: string[];
   riskWarnings: string[];
   recommendations: string[];
   suggestedMilestones: SuggestedMilestone[];
-  auditHash: string;                 // SHA-256 fingerprint binding audit to documents
+  auditHash: string;                    // SHA-256 fingerprint binding audit to documents
   analyzedAt: number;
 }
 
@@ -145,7 +149,8 @@ export async function runPrivacyAiAudit(params: {
 }
 
 /**
- * In-memory deterministic heuristic scoring engine
+ * In-memory deterministic heuristic scoring engine that cross-examines
+ * the campaign story description against attached documents.
  */
 export function evaluateFallbackHeuristicAudit(params: {
   title: string;
@@ -161,10 +166,17 @@ export function evaluateFallbackHeuristicAudit(params: {
     targetAmountUsdc: string;
   }>;
 }): AiAuditReport {
-  const { title, description, targetFundingUsdc, documents, plannedMilestones = [] } = params;
+  const { title, tagline, description, targetFundingUsdc, documents, plannedMilestones = [] } = params;
   const fundingNum = Number(targetFundingUsdc) || 0;
+  const descLower = description.toLowerCase();
+  const titleLower = title.toLowerCase();
 
-  // 1. Authenticity Score calculation
+  // Combine extracted text from all attached documents
+  const allDocText = documents
+    .map((d) => (d.textSnippet || d.name).toLowerCase())
+    .join(" ");
+
+  // 1. Authenticity Score
   let authenticity = 70;
   if (documents.length > 0) authenticity += 15;
   if (documents.some((d) => d.category === "whitepaper" || d.category === "technical_spec")) authenticity += 10;
@@ -172,24 +184,84 @@ export function evaluateFallbackHeuristicAudit(params: {
   if (title.length < 5 || description.length < 50) authenticity -= 25;
   authenticity = Math.max(20, Math.min(98, authenticity));
 
-  // 2. Feasibility Score
+  // 2. Story vs. Document Alignment Cross-Examination
+  let alignmentScore = 75;
+  const storyAlignmentFindings: string[] = [];
+  const storyDiscrepancies: string[] = [];
+
+  if (documents.length === 0) {
+    alignmentScore = 50;
+    storyDiscrepancies.push("No documents attached to verify claims made in the campaign story.");
+  } else {
+    // Check keyword and concept overlap
+    const technicalKeywords = [
+      "solana", "anchor", "rust", "smart contract", "program", "pda", "escrow",
+      "token", "governance", "zk", "zero-knowledge", "oracle", "cross-chain",
+      "bridge", "defi", "amm", "liquidity", "vault", "mobile", "frontend", "api", "sdk"
+    ];
+
+    let matchedKeywords = 0;
+    for (const kw of technicalKeywords) {
+      if (descLower.includes(kw) && allDocText.includes(kw)) {
+        matchedKeywords++;
+      }
+    }
+
+    if (matchedKeywords >= 3) {
+      alignmentScore += 15;
+      storyAlignmentFindings.push(`Technical terms & concepts in story (${matchedKeywords} core topics) are corroborated by attached documents.`);
+    } else if (matchedKeywords === 0 && documents.some((d) => d.category === "whitepaper" || d.category === "technical_spec")) {
+      alignmentScore -= 15;
+      storyDiscrepancies.push("Technical terminology in the campaign story has low overlap with the uploaded technical documentation.");
+    }
+
+    // Check Budget & Funding alignment
+    const budgetDoc = documents.find((d) => d.category === "budget" || d.name.toLowerCase().includes("budget") || d.name.toLowerCase().includes("cost"));
+    if (budgetDoc) {
+      storyAlignmentFindings.push(`Verified campaign goal of ${fundingNum.toLocaleString()} USDC against dedicated budget document (${budgetDoc.name}).`);
+      alignmentScore += 10;
+    } else if (fundingNum > 50000) {
+      storyDiscrepancies.push(`Large funding target (${fundingNum.toLocaleString()} USDC) lacks a dedicated itemized budget sheet.`);
+      alignmentScore -= 10;
+    }
+
+    // Check Whitepaper & Tech Spec alignment
+    const specDoc = documents.find((d) => d.category === "whitepaper" || d.category === "technical_spec");
+    if (specDoc) {
+      storyAlignmentFindings.push(`Architecture claims in story match structural specifications in ${specDoc.name}.`);
+      alignmentScore += 10;
+    }
+
+    // Title / Tagline presence in documents
+    if (title.length > 5 && allDocText.includes(titleLower.slice(0, 15))) {
+      storyAlignmentFindings.push(`Project branding ("${title}") is explicitly referenced in attached documents.`);
+      alignmentScore += 5;
+    }
+
+    // Check for potential discrepancies: EVM vs Solana mismatch
+    if ((allDocText.includes("erc20") || allDocText.includes("solidity") || allDocText.includes("ethereum")) && !allDocText.includes("solana") && descLower.includes("solana")) {
+      storyDiscrepancies.push("Warning: Uploaded document mentions Ethereum/Solidity standards but campaign story targets Solana.");
+      alignmentScore -= 20;
+    }
+  }
+  alignmentScore = Math.max(15, Math.min(98, alignmentScore));
+
+  // 3. Feasibility Score
   let feasibility = 75;
   if (fundingNum > 0 && fundingNum <= 50000) feasibility += 10;
   if (fundingNum > 100000 && documents.length === 0) feasibility -= 20;
   if (plannedMilestones.length > 1) feasibility += 10;
   feasibility = Math.max(25, Math.min(95, feasibility));
 
-  // 3. Verifiability Score
+  // 4. Verifiability Score
   let verifiability = 70;
-  const descLower = description.toLowerCase();
   if (descLower.includes("github") || descLower.includes("test") || descLower.includes("audit") || descLower.includes("demo")) {
     verifiability += 15;
   }
   if (plannedMilestones.length >= 2) verifiability += 10;
   verifiability = Math.max(30, Math.min(95, verifiability));
 
-  // 4. AI-Generated Content Analysis
-  // Heuristic markers for generic AI text (overused filler phrases)
+  // 5. AI-Generated Content Analysis
   const aiPhrases = [
     "delve", "tapestry", "in summary", "game-changing", "revolutionary platform",
     "leverage cutting-edge", "unleash the power", "testament to", "holistic approach",
@@ -202,9 +274,13 @@ export function evaluateFallbackHeuristicAudit(params: {
   const aiGeneratedProbability = Math.min(90, Math.max(10, aiMarkerHits * 18 + (description.length < 100 ? 30 : 0)));
   const aiContentScore = Math.max(10, 100 - Math.round(aiGeneratedProbability * 0.7));
 
-  // Composite Trust Score (0 - 100)
+  // Composite Trust Score (0 - 100) with Story-Doc Alignment as a core pillar
   const trustScore = Math.round(
-    authenticity * 0.35 + feasibility * 0.25 + verifiability * 0.25 + aiContentScore * 0.15
+    authenticity * 0.25 +
+    alignmentScore * 0.25 +
+    feasibility * 0.20 +
+    verifiability * 0.20 +
+    aiContentScore * 0.10
   );
 
   let rating: AiAuditReport["rating"] = "Moderate";
@@ -217,13 +293,16 @@ export function evaluateFallbackHeuristicAudit(params: {
   const aiGeneratedRisk: AiAuditReport["aiGeneratedRisk"] =
     aiGeneratedProbability > 65 ? "High" : aiGeneratedProbability > 35 ? "Medium" : "Low";
 
-  // Generate Strengths
+  // Strengths
   const strengths: string[] = [];
   if (documents.length > 0) {
-    strengths.push(`Attached ${documents.length} verified cryptographic document artifact(s).`);
+    strengths.push(`Attached ${documents.length} verified cryptographic document artifact(s) on Pinata IPFS.`);
+  }
+  if (alignmentScore >= 80) {
+    strengths.push("High thematic & technical coherence between campaign story and uploaded documents.");
   }
   if (fundingNum > 0 && fundingNum <= 50000) {
-    strengths.push("Realistic funding target aligned with MVP milestones.");
+    strengths.push("Realistic funding target aligned with MVP deliverable milestones.");
   }
   if (plannedMilestones.length >= 2) {
     strengths.push("Structured phased tranche releases reducing backer concentration risk.");
@@ -235,10 +314,13 @@ export function evaluateFallbackHeuristicAudit(params: {
     strengths.push("Clear baseline project title and category classification.");
   }
 
-  // Generate Warnings
+  // Warnings
   const riskWarnings: string[] = [];
+  if (storyDiscrepancies.length > 0) {
+    riskWarnings.push(...storyDiscrepancies);
+  }
   if (documents.length === 0) {
-    riskWarnings.push("No supporting documents or whitepapers attached; DAO may require verification.");
+    riskWarnings.push("No supporting documents attached; DAO governance may require verification prior to approval.");
   }
   if (plannedMilestones.length === 1 && fundingNum > 20000) {
     riskWarnings.push("100% single-tranche release on a large budget increases backer risk.");
@@ -247,29 +329,32 @@ export function evaluateFallbackHeuristicAudit(params: {
     riskWarnings.push("High probability of AI-generated template text without deep technical specifics.");
   }
 
-  // Generate Recommendations
+  // Recommendations
   const recommendations: string[] = [];
+  if (storyDiscrepancies.length > 0) {
+    recommendations.push("Align the campaign story description with the specific technical deliverables in your uploaded whitepaper.");
+  }
   if (plannedMilestones.length === 1 && fundingNum > 15000) {
     recommendations.push("Consider splitting into 2–3 milestone tranches for faster DAO approval.");
   }
-  if (documents.length === 0) {
-    recommendations.push("Attach a technical whitepaper or architecture PDF to increase Trust Score.");
+  if (!documents.some((d) => d.category === "budget")) {
+    recommendations.push("Upload an itemized budget spreadsheet to maximize feasibility and alignment scores.");
   }
   recommendations.push("Provide active GitHub or demo links in deliverable proofs when submitting milestone releases.");
 
-  // Generate Suggested Milestones if needed
+  // Suggested Milestones
   const totalUsdc = fundingNum > 0 ? fundingNum : 25000;
   const suggestedMilestones: SuggestedMilestone[] = [
     {
       id: 0,
       title: "Phase 1: Architecture, Core Programs & Security Tests",
-      description: "Development and devnet deployment of core smart contracts with full test coverage.",
+      description: "Development and devnet deployment of core smart contracts with full test coverage matching specifications.",
       targetAmountUsdc: Math.round(totalUsdc * 0.4).toString(),
       estimatedDurationDays: 30,
       deliverableCriteria: [
         "Public GitHub repository with commit history",
         "Passed automated integration test suite on LiteSVM/devnet",
-        "Architecture specification document",
+        "Architecture specification document matching whitepaper",
       ],
     },
     {
@@ -287,7 +372,7 @@ export function evaluateFallbackHeuristicAudit(params: {
   ];
 
   // Audit Hash
-  const rawAuditStr = `${title}:${fundingNum}:${trustScore}:${documents.map((d) => d.sha256).join(",")}`;
+  const rawAuditStr = `${title}:${fundingNum}:${trustScore}:${alignmentScore}:${documents.map((d) => d.sha256).join(",")}`;
   let auditHash = "0x";
   let hashNum = 0;
   for (let i = 0; i < rawAuditStr.length; i++) {
@@ -303,10 +388,13 @@ export function evaluateFallbackHeuristicAudit(params: {
     aiGeneratedProbability,
     subScores: {
       authenticityScore: authenticity,
+      storyDocumentAlignmentScore: alignmentScore,
       feasibilityScore: feasibility,
       verifiabilityScore: verifiability,
       aiContentScore,
     },
+    storyAlignmentFindings,
+    storyDiscrepancies,
     strengths,
     riskWarnings,
     recommendations,

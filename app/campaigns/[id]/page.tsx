@@ -502,10 +502,14 @@ export default function CampaignDetailPage({
 
               {aiAudit ? (
                 <div className="space-y-4 text-xs">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
                     <div className="rounded-xl bg-muted/30 p-2.5">
                       <span className="text-[10px] text-muted-foreground uppercase">Authenticity</span>
                       <p className="font-bold text-sm">{aiAudit.subScores.authenticityScore}%</p>
+                    </div>
+                    <div className="rounded-xl bg-primary/10 border border-primary/20 p-2.5">
+                      <span className="text-[10px] text-primary uppercase font-semibold">Story Alignment</span>
+                      <p className="font-bold text-sm text-primary">{aiAudit.subScores.storyDocumentAlignmentScore ?? 85}%</p>
                     </div>
                     <div className="rounded-xl bg-muted/30 p-2.5">
                       <span className="text-[10px] text-muted-foreground uppercase">Feasibility</span>
@@ -520,6 +524,38 @@ export default function CampaignDetailPage({
                       <p className="font-bold text-sm">{aiAudit.aiGeneratedProbability}% ({aiAudit.aiGeneratedRisk})</p>
                     </div>
                   </div>
+
+                  {/* Story vs Document Cross-Alignment Findings */}
+                  {((aiAudit.storyAlignmentFindings && aiAudit.storyAlignmentFindings.length > 0) ||
+                    (aiAudit.storyDiscrepancies && aiAudit.storyDiscrepancies.length > 0)) && (
+                    <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-2 text-xs">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <Cpu className="h-4 w-4 text-primary" /> Story vs. Document Cross-Examination
+                      </span>
+
+                      {aiAudit.storyAlignmentFindings && aiAudit.storyAlignmentFindings.length > 0 && (
+                        <div className="space-y-1">
+                          {aiAudit.storyAlignmentFindings.map((f, i) => (
+                            <p key={i} className="flex items-start gap-1.5 text-muted-foreground">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                              <span>{f}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {aiAudit.storyDiscrepancies && aiAudit.storyDiscrepancies.length > 0 && (
+                        <div className="space-y-1 pt-1 border-t border-border/40">
+                          {aiAudit.storyDiscrepancies.map((d, i) => (
+                            <p key={i} className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>{d}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {aiAudit.strengths && aiAudit.strengths.length > 0 && (
                     <div className="space-y-1">

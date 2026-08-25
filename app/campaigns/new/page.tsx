@@ -423,6 +423,9 @@ function CampaignCreatorWizard() {
     if (validateStep(step)) {
       if (step === 2 && !aiAuditReport) {
         await handleTriggerAiScan();
+      } else if (step === 3 && documents.length > 0) {
+        // Cross-examine the updated story description against attached documents
+        handleTriggerAiScan();
       }
       saveDraft();
       setStep((prev) => Math.min(prev + 1, 5));
@@ -939,7 +942,7 @@ function CampaignCreatorWizard() {
               {/* AI Report Card */}
               {aiAuditReport && !isScanningAi && (
                 <div className="space-y-4 pt-2 border-t border-border/40">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
                     <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold">
                         Trust Score
@@ -967,6 +970,18 @@ function CampaignCreatorWizard() {
                       </p>
                       <span className="text-[10px] text-muted-foreground">
                         Consistency
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl bg-card border border-primary/30 bg-primary/5 p-3 text-center">
+                      <span className="text-[10px] text-primary uppercase font-bold">
+                        Story Alignment
+                      </span>
+                      <p className="text-2xl font-extrabold text-primary tabular-nums mt-0.5">
+                        {aiAuditReport.subScores.storyDocumentAlignmentScore ?? 85}%
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">
+                        Doc Cross-Check
                       </span>
                     </div>
 
@@ -1003,6 +1018,43 @@ function CampaignCreatorWizard() {
                       </Badge>
                     </div>
                   </div>
+
+                  {/* Story vs Document Alignment Findings */}
+                  {((aiAuditReport.storyAlignmentFindings && aiAuditReport.storyAlignmentFindings.length > 0) ||
+                    (aiAuditReport.storyDiscrepancies && aiAuditReport.storyDiscrepancies.length > 0)) && (
+                    <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Cpu className="h-4 w-4 text-primary" /> Story vs. Document Cross-Examination
+                        </span>
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                          Alignment: {aiAuditReport.subScores.storyDocumentAlignmentScore ?? 85}%
+                        </Badge>
+                      </div>
+
+                      {aiAuditReport.storyAlignmentFindings && aiAuditReport.storyAlignmentFindings.length > 0 && (
+                        <div className="space-y-1">
+                          {aiAuditReport.storyAlignmentFindings.map((f, i) => (
+                            <p key={i} className="flex items-start gap-1.5 text-muted-foreground">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                              <span>{f}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {aiAuditReport.storyDiscrepancies && aiAuditReport.storyDiscrepancies.length > 0 && (
+                        <div className="space-y-1 pt-1 border-t border-border/40">
+                          {aiAuditReport.storyDiscrepancies.map((d, i) => (
+                            <p key={i} className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>{d}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Strengths & Warnings */}
                   <div className="grid gap-3 sm:grid-cols-2 text-xs">

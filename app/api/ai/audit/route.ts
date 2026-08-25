@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { evaluateFallbackHeuristicAudit, type AiAuditReport } from "@/app/lib/ai-audit";
+import { evaluateFallbackHeuristicAudit, sanitizeTextForPrivacy, type AiAuditReport } from "@/app/lib/ai-audit";
 
 export const runtime = "nodejs";
 
@@ -27,12 +27,25 @@ export async function POST(req: Request) {
 
     if (geminiApiKey) {
       try {
-        const prompt = `You are a strict, privacy-focused Web3 & Solana security auditor for Arthasetu DAO.
-Analyze the following crowdfunding campaign submission for:
-1. Document Authenticity & Consistency (do dates, scopes, and budget match).
-2. AI-Generated Content Probability (is this generic AI template spam, or real technical engineering depth).
-3. Budget Plausibility (does the requested USDC amount match realistic market dev costs).
-4. Fraud & Plagiarism Red Flags.
+        const sanitizedStory = sanitizeTextForPrivacy(description.slice(0, 4000));
+        const sanitizedDocs = documents.map((d: any) => ({
+          name: d.name,
+          category: d.category,
+          size: d.size,
+          hash: d.sha256,
+          contentSample: d.textSnippet ? sanitizeTextForPrivacy(d.textSnippet.slice(0, 3000)) : "[Binary / Encrypted Content]",
+        }));
+
+        const prompt = `You are a strict, privacy-focused Web3 & Solana security and diligence auditor for Arthasetu DAO.
+Your primary objective is to cross-examine the Campaign Story / Description against the Attached Supporting Documents.
+
+Evaluate the submission on:
+1. Story & Document Cross-Alignment:
+   - Does the written Campaign Story actually match the technical claims, budget numbers, and architecture described in the attached documents?
+   - Identify any contradictions or discrepancies (e.g. story claims $100k budget but budget sheet lists $25k; story promises zk-proofs on Solana but whitepaper discusses EVM ERC-20 token; story claims deliverables not present in whitepaper).
+2. Document Authenticity & Consistency.
+3. AI-Generated Content Probability (generic AI template spam vs real technical engineering depth).
+4. Budget Plausibility (does the requested USDC amount match realistic market dev costs for the deliverables).
 5. Deliverable Verifiability (are milestones measurable on-chain with git commits/test reports).
 
 Campaign Details:
@@ -40,11 +53,16 @@ Campaign Details:
 - Tagline: ${tagline}
 - Category: ${category}
 - Funding Target (USDC): ${targetFundingUsdc}
-- Story/Description: ${description.slice(0, 3000)}
-- Attached Documents: ${JSON.stringify(
-          documents.map((d: any) => ({ name: d.name, type: d.category, size: d.size, hash: d.sha256 }))
-        )}
-- Planned Milestones: ${JSON.stringify(plannedMilestones)}
+- Campaign Story / Description:
+"""
+${sanitizedStory}
+"""
+
+- Attached Supporting Documents:
+${JSON.stringify(sanitizedDocs, null, 2)}
+
+- Planned Milestones:
+${JSON.stringify(plannedMilestones, null, 2)}
 
 Respond ONLY with a valid JSON object matching this exact schema:
 {
@@ -54,10 +72,13 @@ Respond ONLY with a valid JSON object matching this exact schema:
   "aiGeneratedProbability": number (0-100),
   "subScores": {
     "authenticityScore": number (0-100),
+    "storyDocumentAlignmentScore": number (0-100),
     "feasibilityScore": number (0-100),
     "verifiabilityScore": number (0-100),
     "aiContentScore": number (0-100)
   },
+  "storyAlignmentFindings": string[],
+  "storyDiscrepancies": string[],
   "strengths": string[],
   "riskWarnings": string[],
   "recommendations": string[],
@@ -98,30 +119,34 @@ Respond ONLY with a valid JSON object matching this exact schema:
               trustScore: Math.min(100, Math.max(0, Number(parsed.trustScore) || 75)),
               rating: parsed.rating || "High",
               aiGeneratedRisk: parsed.aiGeneratedRisk || "Low",
-              aiGeneratedProbability: Math.min(100, Math.max(0, Number(parsed.aiGeneratedProbability) || 20)),
+              aiGeneratedProbability: Number(parsed.aiGeneratedProbability) || 20,
               subScores: {
-                authenticityScore: Math.min(100, Math.max(0, Number(parsed.subScores?.authenticityScore) || 80)),
-                feasibilityScore: Math.min(100, Math.max(0, Number(parsed.subScores?.feasibilityScore) || 75)),
-                verifiabilityScore: Math.min(100, Math.max(0, Number(parsed.subScores?.verifiabilityScore) || 80)),
-                aiContentScore: Math.min(100, Math.max(0, Number(parsed.subScores?.aiContentScore) || 85)),
+                authenticityScore: Number(parsed.subScores?.authenticityScore) || 80,
+                storyDocumentAlignmentScore: Number(parsed.subScores?.storyDocumentAlignmentScore) || 85,
+                feasibilityScore: Number(parsed.subScores?.feasibilityScore) || 80,
+                verifiabilityScore: Number(parsed.subScores?.verifiabilityScore) || 80,
+                aiContentScore: Number(parsed.subScores?.aiContentScore) || 85,
               },
-              strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ["Verified cryptographic documents"],
+              storyAlignmentFindings: Array.isArray(parsed.storyAlignmentFindings) ? parsed.storyAlignmentFindings : [],
+              storyDiscrepancies: Array.isArray(parsed.storyDiscrepancies) ? parsed.storyDiscrepancies : [],
+              strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
               riskWarnings: Array.isArray(parsed.riskWarnings) ? parsed.riskWarnings : [],
               recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
               suggestedMilestones: Array.isArray(parsed.suggestedMilestones) ? parsed.suggestedMilestones : [],
               auditHash,
               analyzedAt: Date.now(),
             };
+
             return NextResponse.json(report);
           }
         }
-      } catch (geminiErr) {
-        console.warn("Gemini API call failed, using heuristic engine:", geminiErr);
+      } catch (geminiErr: any) {
+        console.warn("Gemini AI API call failed, falling back to heuristic engine:", geminiErr.message);
       }
     }
 
-    // Fallback to high-precision in-memory heuristic engine
-    const heuristicReport = evaluateFallbackHeuristicAudit({
+    // Fallback in-memory heuristic audit
+    const fallbackReport = evaluateFallbackHeuristicAudit({
       title,
       tagline: tagline || "",
       category: category || "technology",
@@ -131,11 +156,11 @@ Respond ONLY with a valid JSON object matching this exact schema:
       plannedMilestones,
     });
 
-    return NextResponse.json(heuristicReport);
+    return NextResponse.json(fallbackReport);
   } catch (err: any) {
-    console.error("AI Audit route error:", err);
+    console.error("AI audit route error:", err);
     return NextResponse.json(
-      { error: err?.message || "Internal server error during AI audit" },
+      { error: err.message || "Failed to process AI audit" },
       { status: 500 }
     );
   }

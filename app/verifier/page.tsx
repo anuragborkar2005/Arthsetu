@@ -330,7 +330,7 @@ function VerifierCampaignCard({
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
-              Authenticity: {metadata.aiAudit.subScores.authenticityScore}% · Feasibility: {metadata.aiAudit.subScores.feasibilityScore}% · AI Risk: {metadata.aiAudit.aiGeneratedRisk}
+              Authenticity: {metadata.aiAudit.subScores.authenticityScore}% · Story Alignment: {metadata.aiAudit.subScores.storyDocumentAlignmentScore ?? 85}% · AI Risk: {metadata.aiAudit.aiGeneratedRisk}
             </p>
           </div>
         )}
