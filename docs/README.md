@@ -18,47 +18,46 @@ Welcome to the centralized documentation hub for the **Arthasetu Protocol**, a d
 
 ## 🌟 Key Architecture Highlights
 
-```
-+─────────────────────────────────────────────────────────────────────────────────────────+
-| 1. CREATOR STUDIO & AI VERIFICATION (/campaigns/new)                                    |
-|    • Upload Whitepapers, Pitch Decks, & Itemized Budget Sheets (Pinned to Pinata IPFS)  |
-|    • Client-side WebCrypto SHA-256 Hashing + PII Sanitization (Zero Data Retention)    |
-|    • Deep Story vs. Document Cross-Examination (Alignment Scoring & Discrepancy Check)  |
-|    • AI-Crafted Milestone Roadmap Tranches + Designated Verifier Assignment             |
-|    • On-Chain Registration on Solana (create_campaign with Trust Score 0-100)           |
-+──────────────────────────────────────────┬──────────────────────────────────────────────+
-                                           │
-                                           ▼
-+─────────────────────────────────────────────────────────────────────────────────────────+
-| 2. DAO REVIEW & GO-LIVE GOVERNANCE (/governance)                                        |
-|    • Assigned Verifiers & DAO Members Inspect Document Hashes & AI Trust Audit          |
-|    • Sponsoring Member Creates On-Chain ApproveCampaign Proposal                        |
-|    • Token Holders Vote (cast_vote with Voting Tokens Locked in Vote-Escrow ATAs)       |
-|    • Timelocked Permissionless Execution: approve_and_go_live Activates Public Donations  |
-+──────────────────────────────────────────┬──────────────────────────────────────────────+
-                                           │
-                                           ▼
-+─────────────────────────────────────────────────────────────────────────────────────────+
-| 3. PUBLIC ESCROW FUNDING (/campaigns/[id])                                              |
-|    • Donors Deposit USDC Directly into Non-Custodial Campaign Escrow PDA (donate)       |
-|    • Creates On-Chain DonationRecord PDA Tracking Lifetime Contributions for Clawbacks  |
-+──────────────────────────────────────────┬──────────────────────────────────────────────+
-                                           │
-                                           ▼
-+─────────────────────────────────────────────────────────────────────────────────────────+
-| 4. TRANSPARENT MILESTONE PROOFS & DUAL-SIGNER RELEASE (/verifier)                       |
-|    • Creator Submits Verifiable Deliverable Proofs (Git Commits, Test Reports, Demos)   |
-|    • Evidence Files Pinned to Pinata IPFS (proof_cid)                                   |
-|    • Designated Verifier Audits Deliverables & Co-Signs propose_milestone on Solana     |
-|    • DAO Votes on ReleaseMilestone Proposal; Funds Disbursed & Milestone PDA Closed     |
-+──────────────────────────────────────────┬──────────────────────────────────────────────+
-                                           │
-                                           ▼
-+─────────────────────────────────────────────────────────────────────────────────────────+
-| 5. EMERGENCY RESCUE & DONOR CLAWBACK (/portfolio)                                       |
-|    • DAO Passes EmergencyWithdraw if Campaign Stalls (Funds Drained to DAO Treasury)    |
-|    • Donors Claim Pro-Rata Refunds (claim_refund) Directly from Remaining Escrow Balance|
-+─────────────────────────────────────────────────────────────────────────────────────────+
+```mermaid
+flowchart TD
+    subgraph S1["1. Creator Studio & Privacy AI (/campaigns/new)"]
+        A1["Upload Docs & Whitepapers"] --> A2["Client-side SHA-256 Hashing"]
+        A2 --> A3["In-Memory PII Sanitization"]
+        A3 --> A4["Story vs. Doc Cross-Examination"]
+        A4 --> A5["Generate Trust Score (0-100)"]
+        A5 --> A6["Pin to Pinata IPFS (CIDv1)"]
+        A6 --> A7["create_campaign on Solana<br/>(is_live = false)"]
+    end
+
+    subgraph S2["2. DAO Review & Go-Live Governance (/governance)"]
+        B1["DAO & Verifier Audit Docs & Trust Score"] --> B2["Sponsor ApproveCampaign Proposal"]
+        B2 --> B3["Token Holders Cast Votes<br/>(Locked in Vote-Escrow ATAs)"]
+        B3 --> B4["Quorum Met & Timelock Elapses"]
+        B4 --> B5["approve_and_go_live<br/>(is_live = true)"]
+    end
+
+    subgraph S3["3. Public Escrow Donations (/campaigns/[id])"]
+        C1["Donors Deposit USDC into Escrow PDA"] --> C2["donate CPI Transfer"]
+        C2 --> C3["Initialize DonationRecord PDA<br/>(Tracks Lifetime Backer Share)"]
+    end
+
+    subgraph S4["4. Transparent Milestone Release (/verifier)"]
+        D1["Creator Packages Proofs (Git, Demos, Invoices)"] --> D2["Pin Evidence to Pinata IPFS"]
+        D2 --> D3["propose_milestone<br/>(Dual-Signed: Creator + Verifier)"]
+        D3 --> D4["DAO ReleaseMilestone Vote & Timelock"]
+        D4 --> D5["release_milestone<br/>(Escrow Pays Creator & PDA Closes)"]
+    end
+
+    subgraph S5["5. Emergency Protection & Donor Clawback (/portfolio)"]
+        E1["Campaign Stalls or Malicious Action"] --> E2["DAO EmergencyWithdraw Proposal"]
+        E2 --> E3["Drain Escrow to DAO Treasury"]
+        E3 --> E4["Donors Claim Pro-Rata Refund<br/>(claim_refund via DonationRecord)"]
+    end
+
+    A7 --> B1
+    B5 --> C1
+    C3 --> D1
+    D3 -.->|If Stalled / Disputed| E1
 ```
 
 ---

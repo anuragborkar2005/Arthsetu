@@ -27,29 +27,45 @@ The **Arthasetu Protocol** leverages the high-speed **Solana Virtual Machine (SV
 
 ---
 
-## 2. Primary SDG Alignments
+```mermaid
+flowchart TD
+    Arthasetu["🏛️ Arthasetu Protocol<br/>(Solana SVM + Privacy AI + Pinata IPFS)"]
 
-```
-+─────────────────────────────────────────────────────────────────────────────────────────+
-|                                    ARTHASETU PROTOCOL                                   |
-|                                                                                         |
-|      ┌─────────────────────────┐                     ┌─────────────────────────┐        |
-|      │         SDG 16          │                     │          SDG 9          │        |
-|      │ Peace, Justice & Strong │                     │ Industry, Innovation &  │        |
-|      │       Institutions      │                     │     Infrastructure      │        |
-|      └────────────┬────────────┘                     └────────────┬────────────┘        |
-|                   │                                               │                     |
-|                   ▼                                               ▼                     |
-|  [ Anti-Corruption Escrows & Gov ]                  [ Decentralized SVM Public Goods ]  |
-|                   │                                               │                     |
-|                   ├───────────────────────┬───────────────────────┤                     |
-|                   ▼                       ▼                       ▼                     |
-|      ┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐|
-|      │         SDG 13          │ │         SDG 10          │ │         SDG 17          │|
-|      │  Climate Action & Flood │ │   Reduced Inequalities  │ │   Partnerships for the  │|
-|      │     Disaster Relief     │ │   & Frictionless Aid    │ │          Goals          │|
-|      └─────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘|
-+─────────────────────────────────────────────────────────────────────────────────────────+
+    subgraph GovernanceEthics["Anti-Corruption & Transparency"]
+        SDG16["<b>SDG 16: Peace, Justice & Strong Institutions</b><br/>Targets 16.5 & 16.6"]
+        M16["• Non-Custodial Escrows (No Embezzlement)<br/>• Dual-Signer Deliverable Verification<br/>• DAO Token Holder Voting<br/>• Pro-Rata Donor Clawbacks (claim_refund)"]
+        SDG16 --- M16
+    end
+
+    subgraph InfrastructureTech["Public Goods & Tech Inclusion"]
+        SDG9["<b>SDG 9: Industry, Innovation & Infrastructure</b><br/>Targets 9.1 & 9.c"]
+        M9["• Sub-cent, 400ms Solana SVM Micro-funding<br/>• Pinata IPFS Decentralized Proof Storage<br/>• Zero-Retention Privacy AI Diligence"]
+        SDG9 --- M9
+    end
+
+    subgraph ClimateResilience["Disaster & Environmental Action"]
+        SDG13["<b>SDG 13: Climate Action & Disaster Relief</b><br/>Target 13.1"]
+        M13["• Rapid Crisis Deployment (Assam Flood Relief)<br/>• GPS-Verified Field Deliverables<br/>• Transparent Line-Item Relief Budgets"]
+        SDG13 --- M13
+    end
+
+    subgraph EconomicEquity["Financial Inclusion & Friction Reduction"]
+        SDG10["<b>SDG 10: Reduced Inequalities</b><br/>Target 10.c"]
+        M10["• Slashes 5-15% Intermediary Cuts to <$0.0005<br/>• 99.99% Capital Flow Direct to Beneficiaries<br/>• Open Borderless Wallet Access"]
+        SDG10 --- M10
+    end
+
+    subgraph GlobalPartnerships["Collaborative Multi-Stakeholder Network"]
+        SDG17["<b>SDG 17: Partnerships for the Goals</b><br/>Target 17.17"]
+        M17["• Unites Grassroots NGOs, Auditors & DAO Voters<br/>• Open-Source Anchor Smart Contracts & IDLs"]
+        SDG17 --- M17
+    end
+
+    Arthasetu --> SDG16
+    Arthasetu --> SDG9
+    Arthasetu --> SDG13
+    Arthasetu --> SDG10
+    Arthasetu --> SDG17
 ```
 
 ---

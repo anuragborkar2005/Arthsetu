@@ -16,45 +16,36 @@
 
 ## 1. Privacy-Preserving AI Architecture
 
-```
-+─────────────────────────────────────────────────────────────────────────────────────────+
-|                                    CREATOR BROWSER                                      |
-|                                                                                         |
-|  [ Upload Whitepaper / Budget / Spec ]                                                  |
-|           │                                                                             |
-|           ├───► 1. Client-Side SHA-256 Hashing ──► Cryptographic Fingerprint            |
-|           │                                                                             |
-|           ├───► 2. In-Memory Text Extraction (Zero Disk Storage)                        |
-|           │                                                                             |
-|           └───► 3. PII Sanitization / Redaction Engine                                  |
-|                    (Emails, Phone numbers, Private Keys & Secrets Redacted)             |
-+─────────────────────────────────────────┬───────────────────────────────────────────────+
-                                          │ Sanitized Snippets & Hashes
-                                          ▼
-+─────────────────────────────────────────────────────────────────────────────────────────+
-|                              EDGE / ISOLATED AI ENGINE                                  |
-|                                                                                         |
-|  4. Deep Multi-Vector Diligence:                                                        |
-|     • Story vs. Document Cross-Examination (Claims vs. Specs)                           |
-|     • Budget Plausibility & Feasibility vs. Market Rates                                |
-|     • Generic AI-Generated Spam Detection                                               |
-|     • Deliverable Verifiability (Git commits, Test suites, Demo links)                  |
-|                                                                                         |
-|  5. Generates AI Audit Report:                                                          |
-|     • On-chain Trust Score (0–100)                                                      |
-|     • Sub-Scores (Authenticity, Alignment, Feasibility, Verifiability, AI Risk)         |
-|     • Suggested Milestone Roadmap Tranches                                              |
-+─────────────────────────────────────────┬───────────────────────────────────────────────+
-                                          │
-                                          ▼
-+─────────────────────────────────────────────────────────────────────────────────────────+
-|                                   ON-CHAIN SOLANA PDA                                   |
-|                                                                                         |
-|  6. `create_campaign(metadata_cid, trust_score, verifier)`                              |
-|     • Metadata & Pinned Docs stored on Pinata IPFS                                      |
-|     • `trust_score` recorded immutably on the `Campaign` Solana PDA                     |
-|     • DAO Governance evaluates Trust Score & Audit prior to voting                      |
-+─────────────────────────────────────────────────────────────────────────────────────────+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Creator as 🧑‍💻 Campaign Creator (Browser)
+    participant WebCrypto as 🔐 WebCrypto API
+    participant Pinata as 📦 Pinata IPFS Cloud
+    participant Redactor as 🛡️ PII Sanitizer
+    participant AI as 🧠 Gemini 1.5 Flash AI
+    participant Solana as ⛓️ Solana SVM (Anchor)
+
+    Creator->>WebCrypto: Hash Documents (Whitepapers & Budgets)
+    WebCrypto-->>Creator: Returns SHA-256 Fingerprints
+    Creator->>Pinata: Upload Raw Files to IPFS (/api/pinata/upload)
+    Pinata-->>Creator: Returns Pinata CIDs (bafy...)
+
+    Creator->>Redactor: Extract In-Memory Text & Sanitize
+    Redactor->>Redactor: Strip Emails, Phones & Private Keys
+    Redactor->>AI: Send Sanitized Text + Hashes + Story Markdown
+
+    rect rgb(20, 30, 40)
+        Note over AI: Multi-Vector Diligence Analysis
+        AI->>AI: Cross-Examine Story Claims vs Document Specs
+        AI->>AI: Assess Budget Feasibility vs Market Rates
+        AI->>AI: Evaluate Deliverable Verifiability Criteria
+        AI->>AI: Detect Generic AI Spam & Hallucination Risks
+    end
+
+    AI-->>Creator: Returns AI Audit Report (Trust Score: 0-100, Alignment Sub-scores)
+    Creator->>Solana: create_campaign(metadata_cid, trust_score, verifier)
+    Solana-->>Solana: Initializes Campaign PDA with immutable trust_score
 ```
 
 ---

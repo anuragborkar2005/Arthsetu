@@ -60,7 +60,103 @@ src/
 
 ## 3. Account Model & On-Chain PDA Map
 
-All accounts are PDAs. `Milestone` and `VoteRecord` are **closed** (rent reclaimed) after their final use — on `release_milestone` and `unlock_votes` respectively; the rest remain open for the lifetime of the protocol.
+### 3.1 Entity-Relationship & PDA Topology Diagram
+
+```mermaid
+classDiagram
+    class DaoConfig {
+        +Pubkey authority
+        +Pubkey pending_authority
+        +Pubkey treasury
+        +Pubkey governance_mint
+        +Pubkey stablecoin_mint
+        +i64 voting_delay
+        +i64 voting_period
+        +u16 quorum_bps
+        +i64 timelock_delay
+        +u64 max_governance_supply
+        +u64 next_proposal_id
+        +u64 campaign_count
+        +bool paused
+    }
+
+    class Campaign {
+        +Pubkey creator
+        +Pubkey escrow_token_account
+        +String metadata_cid
+        +u8 trust_score
+        +Pubkey verifier
+        +bool is_live
+        +u64 total_deposited
+        +u64 total_released
+        +u64 milestone_count
+        +bool emergency_withdrawn
+    }
+
+    class Milestone {
+        +Pubkey campaign
+        +u64 milestone_id
+        +String proof_cid
+        +u64 amount
+        +Pubkey verified_by
+        +bool released
+    }
+
+    class Proposal {
+        +Pubkey proposer
+        +String description
+        +ProposalAction action
+        +u64 for_votes
+        +u64 against_votes
+        +ProposalState state
+        +i64 vote_start
+        +i64 vote_end
+        +i64 eta
+    }
+
+    class VoteRecord {
+        +Pubkey proposal
+        +Pubkey voter
+        +u8 support
+        +u64 weight
+        +bool unlocked
+    }
+
+    class DonationRecord {
+        +Pubkey campaign
+        +Pubkey donor
+        +u64 amount
+    }
+
+    DaoConfig "1" --> "*" Campaign : tracks count
+    DaoConfig "1" --> "*" Proposal : configures governance
+    Campaign "1" --> "*" Milestone : manages releases
+    Campaign "1" --> "*" DonationRecord : tracks donor shares
+    Proposal "1" --> "*" VoteRecord : records voter locks
+```
+
+### 3.2 Proposal Lifecycle & Timelock State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : create_proposal
+    Pending --> Active : voting_delay elapses
+    Active --> Succeeded : vote_end reached & quorum met & for > against
+    Active --> Defeated : vote_end reached & (quorum failed OR against >= for)
+    Active --> Canceled : cancel_proposal (by proposer)
+    
+    Succeeded --> Queued : queue_proposal (sets eta = now + timelock)
+    Queued --> Executed : Action Trigger (now >= eta & now <= eta + 14d)
+    Queued --> Expired : now > eta + 14d
+    Queued --> Canceled : cancel_proposal (by DAO authority)
+
+    Executed --> [*]
+    Defeated --> [*]
+    Expired --> [*]
+    Canceled --> [*]
+```
+
+### 3.3 On-Chain PDA Accounts & Lifecycles
 
 | Account             | Seeds                                                                   | Key fields                                             | Written by                                                      |
 | ------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
