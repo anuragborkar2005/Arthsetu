@@ -30,6 +30,7 @@ import type { Address } from "@solana/kit";
 import { CampaignStatusBadge } from "../../components/fydao/status-badge";
 import { ProposeMilestoneDialog } from "../../components/fydao/milestone-dialog";
 import { CreateProposalDialog } from "../../components/fydao/create-proposal-dialog";
+import { MarkdownContent } from "../../components/markdown-content";
 import {
   Shield,
   ShieldCheck,
@@ -430,9 +431,9 @@ export default function CampaignDetailPage({
                 <Sparkles className="h-5 w-5 text-primary" /> Project Story &amp; Architecture
               </h2>
               <Separator />
-              <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-foreground whitespace-pre-line">
-                {metadata?.description || "No extended description provided for this campaign."}
-              </div>
+              <MarkdownContent
+                content={metadata?.description || "No extended description provided for this campaign."}
+              />
 
               {/* Social / External Links */}
               {(metadata?.websiteUrl ||
@@ -917,7 +918,9 @@ export default function CampaignDetailPage({
                 <div className="rounded-xl border border-border/80 bg-card p-4 space-y-3">
                   <div>
                     <h4 className="font-bold text-sm text-foreground">{inspectedProofData.title}</h4>
-                    <p className="text-muted-foreground mt-1">{inspectedProofData.description}</p>
+                    <div className="mt-1">
+                      <MarkdownContent content={inspectedProofData.description || ""} />
+                    </div>
                   </div>
 
                   {inspectedProofData.gitCommit && (

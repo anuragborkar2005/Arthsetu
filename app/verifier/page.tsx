@@ -36,6 +36,7 @@ import type { Campaign, Milestone } from "@/app/generated/fydao/accounts";
 import { CampaignStatusBadge } from "../components/fydao/status-badge";
 import { CreateProposalDialog } from "../components/fydao/create-proposal-dialog";
 import { ConnectGate } from "../components/fydao/shared";
+import { MarkdownContent } from "../components/markdown-content";
 import {
   ShieldCheck,
   FileCheck2,
@@ -477,9 +478,7 @@ function ProofInspectorDialog({
                 <h4 className="font-bold text-sm text-foreground">
                   {proofData.title || "Milestone Deliverable Submission"}
                 </h4>
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {proofData.description || "No detailed description provided."}
-                </p>
+                <MarkdownContent content={proofData.description || "No detailed description provided."} />
               </div>
 
               {proofData.gitCommit && (

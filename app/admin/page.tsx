@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Navbar } from "../components/navbar";
 import { GridBackground } from "../components/grid-background";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,9 +43,17 @@ import {
   type CreatedMint,
 } from "@/app/lib/fydao/mints";
 import { findAta } from "@/app/lib/fydao/pdas";
-import { formatCompact, truncate, formatDuration } from "@/app/lib/fydao/format";
+import {
+  formatCompact,
+  truncate,
+  formatDuration,
+} from "@/app/lib/fydao/format";
 import { parseTokenAmount, rawToDecimal } from "@/app/lib/fydao/amount";
-import { GENESIS_AUTHORITY, USDC_MINT, getClusterUsdcMint } from "@/app/lib/fydao/constants";
+import {
+  GENESIS_AUTHORITY,
+  USDC_MINT,
+  getClusterUsdcMint,
+} from "@/app/lib/fydao/constants";
 import { lamports, type Address } from "@solana/kit";
 import { ConnectGate } from "../components/fydao/shared";
 import {
@@ -152,7 +167,9 @@ function AdminDashboard() {
 
   const govMintAddress = govMint?.address;
   const mockUsdcAddress =
-    cluster === "localnet" ? (mockUsdc?.address as Address | undefined) : undefined;
+    cluster === "localnet"
+      ? (mockUsdc?.address as Address | undefined)
+      : undefined;
 
   const stablecoinMint: Address | undefined =
     daoConfig?.stablecoinMint ??
@@ -174,35 +191,53 @@ function AdminDashboard() {
   useEffect(() => {
     let active = true;
     if (govMintAddress) {
-      client.rpc.getAccountInfo(govMintAddress).send().then((info) => {
-        if (active && !info.value) {
-          localStorage.removeItem(`fydao:govMint:addr:${cluster}`);
-          localStorage.removeItem(`fydao:govMint:key:${cluster}`);
-          setGovMint(null);
-        }
-      }).catch(() => {});
+      client.rpc
+        .getAccountInfo(govMintAddress)
+        .send()
+        .then((info) => {
+          if (active && !info.value) {
+            localStorage.removeItem(`fydao:govMint:addr:${cluster}`);
+            localStorage.removeItem(`fydao:govMint:key:${cluster}`);
+            setGovMint(null);
+          }
+        })
+        .catch(() => {});
     }
     if (mockUsdcAddress) {
-      client.rpc.getAccountInfo(mockUsdcAddress).send().then((info) => {
-        if (active && !info.value) {
-          localStorage.removeItem(`fydao:usdcMint:addr:${cluster}`);
-          localStorage.removeItem(`fydao:usdcMint:key:${cluster}`);
-          setMockUsdc(null);
-        }
-      }).catch(() => {});
+      client.rpc
+        .getAccountInfo(mockUsdcAddress)
+        .send()
+        .then((info) => {
+          if (active && !info.value) {
+            localStorage.removeItem(`fydao:usdcMint:addr:${cluster}`);
+            localStorage.removeItem(`fydao:usdcMint:key:${cluster}`);
+            setMockUsdc(null);
+          }
+        })
+        .catch(() => {});
     }
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [cluster, client, govMintAddress, mockUsdcAddress]);
 
   const airdropSol = async () => {
     if (!address) return;
     const loading = toast.loading("Requesting 5 SOL airdrop...");
     try {
-      await client.rpc.requestAirdrop(address as Address, lamports(5_000_000_000n), { commitment: "confirmed" }).send();
+      await client.rpc
+        .requestAirdrop(address as Address, lamports(5_000_000_000n), {
+          commitment: "confirmed",
+        })
+        .send();
       toast.success("Airdropped 5 SOL to wallet!", { id: loading });
       refreshSol();
     } catch (err: any) {
-      toast.error(err?.message || "Airdrop failed. If on localnet, ensure validator is running with --rpc-port 8899.", { id: loading });
+      toast.error(
+        err?.message ||
+          "Airdrop failed. If on localnet, ensure validator is running with --rpc-port 8899.",
+        { id: loading }
+      );
     }
   };
 
@@ -224,11 +259,19 @@ function AdminDashboard() {
     if (!signer) return null;
     let result: CreatedMint | undefined;
     await run("Creating Governance SPL Mint", async () => {
-      result = await createMintWithAuthority(client, signer, GENESIS_AUTHORITY, 6);
+      result = await createMintWithAuthority(
+        client,
+        signer,
+        GENESIS_AUTHORITY,
+        6
+      );
       return result.instructions;
     });
     if (result) {
-      const state: MintState = { address: (result as CreatedMint).mintAddress, key: (result as CreatedMint).privateKey };
+      const state: MintState = {
+        address: (result as CreatedMint).mintAddress,
+        key: (result as CreatedMint).privateKey,
+      };
       setGovMint(state);
       saveMint("fydao:govMint", cluster, state);
       toast.success("Governance mint initialized!");
@@ -241,11 +284,19 @@ function AdminDashboard() {
     if (!signer || cluster !== "localnet") return null;
     let result: CreatedMint | undefined;
     await run("Creating Mock USDC Mint on Localnet", async () => {
-      result = await createMintWithAuthority(client, signer, GENESIS_AUTHORITY, 6);
+      result = await createMintWithAuthority(
+        client,
+        signer,
+        GENESIS_AUTHORITY,
+        6
+      );
       return result.instructions;
     });
     if (result) {
-      const state: MintState = { address: (result as CreatedMint).mintAddress, key: (result as CreatedMint).privateKey };
+      const state: MintState = {
+        address: (result as CreatedMint).mintAddress,
+        key: (result as CreatedMint).privateKey,
+      };
       setMockUsdc(state);
       saveMint("fydao:usdcMint", cluster, state);
       toast.success("Mock USDC mint created!");
@@ -259,7 +310,10 @@ function AdminDashboard() {
       toast.error("Please create or select a valid stablecoin mint first.");
       return;
     }
-    const mintCheck = await client.rpc.getAccountInfo(stablecoinMint).send().catch(() => ({ value: null }));
+    const mintCheck = await client.rpc
+      .getAccountInfo(stablecoinMint)
+      .send()
+      .catch(() => ({ value: null }));
     if (!mintCheck.value) {
       toast.error(
         `Stablecoin mint ${stablecoinMint} is not initialized on this cluster. On Localnet, please click 'Create Mock USDC Mint' first!`
@@ -268,12 +322,17 @@ function AdminDashboard() {
     }
     await run("Creating DAO Treasury Token Account", async () => {
       const [treasury] = await findAta(GENESIS_AUTHORITY, stablecoinMint);
-      const info = await client.rpc.getAccountInfo(treasury).send().catch(() => ({ value: null }));
+      const info = await client.rpc
+        .getAccountInfo(treasury)
+        .send()
+        .catch(() => ({ value: null }));
       if (info.value) {
         toast.info("Treasury token account already exists!");
         return [];
       }
-      return [await createAtaInstruction(signer, GENESIS_AUTHORITY, stablecoinMint)];
+      return [
+        await createAtaInstruction(signer, GENESIS_AUTHORITY, stablecoinMint),
+      ];
     });
   };
 
@@ -288,29 +347,46 @@ function AdminDashboard() {
       return;
     }
 
-    const govCheck = await client.rpc.getAccountInfo(effectiveGovMint).send().catch(() => ({ value: null }));
+    const govCheck = await client.rpc
+      .getAccountInfo(effectiveGovMint)
+      .send()
+      .catch(() => ({ value: null }));
     if (!govCheck.value) {
-      toast.error("Governance mint does not exist on this cluster. Click 'Create Governance Mint' first.");
+      toast.error(
+        "Governance mint does not exist on this cluster. Click 'Create Governance Mint' first."
+      );
       return;
     }
-    const usdcCheck = await client.rpc.getAccountInfo(stablecoinMint).send().catch(() => ({ value: null }));
+    const usdcCheck = await client.rpc
+      .getAccountInfo(stablecoinMint)
+      .send()
+      .catch(() => ({ value: null }));
     if (!usdcCheck.value) {
-      toast.error("Stablecoin mint does not exist on this cluster. Click 'Create Mock USDC' first.");
+      toast.error(
+        "Stablecoin mint does not exist on this cluster. Click 'Create Mock USDC' first."
+      );
       return;
     }
 
     const [treasury] = await findAta(GENESIS_AUTHORITY, stablecoinMint);
-    const treasuryCheck = await client.rpc.getAccountInfo(treasury).send().catch(() => ({ value: null }));
+    const treasuryCheck = await client.rpc
+      .getAccountInfo(treasury)
+      .send()
+      .catch(() => ({ value: null }));
     if (!treasuryCheck.value) {
-      toast.error("Treasury token account does not exist. Click 'Create Treasury ATA' first.");
+      toast.error(
+        "Treasury token account does not exist. Click 'Create Treasury ATA' first."
+      );
       return;
     }
 
     const votingDelay = BigInt(params.votingDelaySecs || "0");
     const votingPeriod = BigInt(params.votingPeriodSecs || "0");
     const timelockDelay = BigInt(params.timelockDelaySecs || "0");
-    const proposalThreshold = parseTokenAmount(params.proposalThresholdTokens, 6) ?? 0n;
-    const maxGovernanceSupply = parseTokenAmount(params.maxGovernanceSupplyTokens, 6) ?? 0n;
+    const proposalThreshold =
+      parseTokenAmount(params.proposalThresholdTokens, 6) ?? 0n;
+    const maxGovernanceSupply =
+      parseTokenAmount(params.maxGovernanceSupplyTokens, 6) ?? 0n;
 
     await run("Initializing Arthasetu DAO Config PDA", () =>
       initializeDaoActions({
@@ -338,11 +414,18 @@ function AdminDashboard() {
     setIsBootstrapping(true);
     try {
       // 0. Ensure wallet is funded with SOL
-      const balance = await client.rpc.getBalance(address as Address).send().catch(() => ({ value: 0n }));
+      const balance = await client.rpc
+        .getBalance(address as Address)
+        .send()
+        .catch(() => ({ value: 0n }));
       if (balance.value < 100_000_000n) {
         toast.info("Funding wallet with 5 SOL for local setup fees...");
         try {
-          await client.rpc.requestAirdrop(address as Address, lamports(5_000_000_000n), { commitment: "confirmed" }).send();
+          await client.rpc
+            .requestAirdrop(address as Address, lamports(5_000_000_000n), {
+              commitment: "confirmed",
+            })
+            .send();
           refreshSol();
         } catch {
           // ignore
@@ -352,7 +435,10 @@ function AdminDashboard() {
       let currentGov = govMint;
       let govExists = false;
       if (currentGov) {
-        const check = await client.rpc.getAccountInfo(currentGov.address).send().catch(() => ({ value: null }));
+        const check = await client.rpc
+          .getAccountInfo(currentGov.address)
+          .send()
+          .catch(() => ({ value: null }));
         if (check.value) govExists = true;
       }
       if (!govExists) {
@@ -367,7 +453,10 @@ function AdminDashboard() {
       if (cluster === "localnet") {
         let usdcExists = false;
         if (currentUsdc) {
-          const check = await client.rpc.getAccountInfo(currentUsdc.address).send().catch(() => ({ value: null }));
+          const check = await client.rpc
+            .getAccountInfo(currentUsdc.address)
+            .send()
+            .catch(() => ({ value: null }));
           if (check.value) usdcExists = true;
         }
         if (!usdcExists) {
@@ -383,10 +472,17 @@ function AdminDashboard() {
       // 3. Create Treasury ATA
       toast.info("Step 3/4: Initializing Treasury Token Account...");
       const [treasury] = await findAta(GENESIS_AUTHORITY, effectiveStablecoin);
-      const treasuryInfo = await client.rpc.getAccountInfo(treasury).send().catch(() => ({ value: null }));
+      const treasuryInfo = await client.rpc
+        .getAccountInfo(treasury)
+        .send()
+        .catch(() => ({ value: null }));
       if (!treasuryInfo.value) {
         await run("Creating Treasury Token Account", async () => [
-          await createAtaInstruction(signer, GENESIS_AUTHORITY, effectiveStablecoin),
+          await createAtaInstruction(
+            signer,
+            GENESIS_AUTHORITY,
+            effectiveStablecoin
+          ),
         ]);
       }
 
@@ -395,8 +491,10 @@ function AdminDashboard() {
       const votingDelay = BigInt(params.votingDelaySecs || "0");
       const votingPeriod = BigInt(params.votingPeriodSecs || "0");
       const timelockDelay = BigInt(params.timelockDelaySecs || "0");
-      const proposalThreshold = parseTokenAmount(params.proposalThresholdTokens, 6) ?? 0n;
-      const maxGovernanceSupply = parseTokenAmount(params.maxGovernanceSupplyTokens, 6) ?? 0n;
+      const proposalThreshold =
+        parseTokenAmount(params.proposalThresholdTokens, 6) ?? 0n;
+      const maxGovernanceSupply =
+        parseTokenAmount(params.maxGovernanceSupplyTokens, 6) ?? 0n;
 
       await run("Bootstrapping DAO Constitution", () =>
         initializeDaoActions({
@@ -406,7 +504,10 @@ function AdminDashboard() {
           treasuryTokenAccount: treasury,
           votingDelay,
           votingPeriod,
-          quorumBps: Math.max(0, Math.min(10_000, Number(params.quorumBps) || 0)),
+          quorumBps: Math.max(
+            0,
+            Math.min(10_000, Number(params.quorumBps) || 0)
+          ),
           proposalThreshold,
           maxGovernanceSupply,
           timelockDelay,
@@ -441,10 +542,15 @@ function AdminDashboard() {
     if (!amount || amount <= 0n) return;
     const [ata] = await findAta(signer.address, effectiveGovMint);
     await run("Minting Governance Tokens to Operator ATA", async () => {
-      const info = await client.rpc.getAccountInfo(ata).send().catch(() => ({ value: null }));
+      const info = await client.rpc
+        .getAccountInfo(ata)
+        .send()
+        .catch(() => ({ value: null }));
       const instructions = [];
       if (!info.value) {
-        instructions.push(await createAtaInstruction(signer, signer.address, effectiveGovMint));
+        instructions.push(
+          await createAtaInstruction(signer, signer.address, effectiveGovMint)
+        );
       }
       instructions.push(
         ...(await mintGovernanceTokensActions({
@@ -464,12 +570,19 @@ function AdminDashboard() {
     if (!amount) return;
     await run("Minting 100,000 Test USDC", async () => {
       const [ata] = await findAta(target, mockUsdcAddress);
-      const info = await client.rpc.getAccountInfo(ata).send().catch(() => ({ value: null }));
+      const info = await client.rpc
+        .getAccountInfo(ata)
+        .send()
+        .catch(() => ({ value: null }));
       const instructions = [];
       if (!info.value) {
-        instructions.push(await createAtaInstruction(signer, target, mockUsdcAddress));
+        instructions.push(
+          await createAtaInstruction(signer, target, mockUsdcAddress)
+        );
       }
-      instructions.push(await mintToInstruction(signer, target, mockUsdcAddress, amount));
+      instructions.push(
+        await mintToInstruction(signer, target, mockUsdcAddress, amount)
+      );
       return instructions;
     });
     toast.success("Airdropped 100,000 test USDC!");
@@ -477,11 +590,15 @@ function AdminDashboard() {
 
   const togglePause = async () => {
     if (!signer || !daoConfig) return;
-    await run(daoConfig.paused ? "Resuming Protocol Operations" : "Tripping Emergency Circuit Breaker (Pause)", () =>
-      setPausedActions({
-        authority: signer,
-        paused: !daoConfig.paused,
-      })
+    await run(
+      daoConfig.paused
+        ? "Resuming Protocol Operations"
+        : "Tripping Emergency Circuit Breaker (Pause)",
+      () =>
+        setPausedActions({
+          authority: signer,
+          paused: !daoConfig.paused,
+        })
     );
   };
 
@@ -493,7 +610,8 @@ function AdminDashboard() {
   };
 
   const pendingAuthority =
-    daoConfig && daoConfig.pendingAuthority !== "11111111111111111111111111111111"
+    daoConfig &&
+    daoConfig.pendingAuthority !== "11111111111111111111111111111111"
       ? daoConfig.pendingAuthority
       : null;
 
@@ -504,32 +622,48 @@ function AdminDashboard() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              <Settings2 className="h-4 w-4" /> Protocol Administration &amp; Operations
+              <Settings2 className="h-4 w-4" /> Protocol Administration &amp;
+              Operations
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Arthasetu System Console
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
-              Bootstrap DAO constitutional parameters, initialize token metadata, mint test stablecoins, and manage the protocol emergency circuit breaker.
+              Bootstrap DAO constitutional parameters, initialize token
+              metadata, mint test stablecoins, and manage the protocol emergency
+              circuit breaker.
             </p>
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-background/80 p-4 font-mono text-xs space-y-1.5 shrink-0 backdrop-blur-sm">
             <p className="text-muted-foreground">Connected Key:</p>
-            <p className="font-bold text-foreground">{truncate(address || "")}</p>
+            <p className="font-bold text-foreground">
+              {truncate(address || "")}
+            </p>
             <div className="flex items-center justify-between gap-2 pt-1">
               <span className="text-muted-foreground">SOL Balance:</span>
               <span className="font-bold text-foreground">
-                {solBalance !== undefined ? (Number(solBalance) / 1e9).toFixed(3) + " SOL" : "—"}
+                {solBalance !== undefined
+                  ? (Number(solBalance) / 1e9).toFixed(3) + " SOL"
+                  : "—"}
               </span>
             </div>
             <div className="pt-1 flex items-center justify-between gap-2">
               {isGenesis ? (
-                <Badge className="bg-green-600 text-white font-sans text-[10px]">Genesis Authority (Root)</Badge>
+                <Badge className="bg-green-600 text-white font-sans text-[10px]">
+                  Genesis Authority (Root)
+                </Badge>
               ) : isAuthority ? (
-                <Badge className="bg-primary text-primary-foreground font-sans text-[10px]">Protocol Authority</Badge>
+                <Badge className="bg-primary text-primary-foreground font-sans text-[10px]">
+                  Protocol Authority
+                </Badge>
               ) : (
-                <Badge variant="outline" className="text-muted-foreground font-sans text-[10px]">Read-Only Audit Mode</Badge>
+                <Badge
+                  variant="outline"
+                  className="text-muted-foreground font-sans text-[10px]"
+                >
+                  Read-Only Audit Mode
+                </Badge>
               )}
               {(cluster === "localnet" || cluster === "devnet") && (
                 <Button
@@ -548,11 +682,15 @@ function AdminDashboard() {
         {/* Status Bar */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-6 pt-6 border-t border-border/40">
           <div>
-            <span className="text-xs text-muted-foreground">Circuit Breaker</span>
+            <span className="text-xs text-muted-foreground">
+              Circuit Breaker
+            </span>
             <div className="mt-1">
               {daoConfig ? (
                 <Badge variant={daoConfig.paused ? "destructive" : "secondary"}>
-                  {daoConfig.paused ? "Paused (Emergency)" : "Live (Operational)"}
+                  {daoConfig.paused
+                    ? "Paused (Emergency)"
+                    : "Live (Operational)"}
                 </Badge>
               ) : (
                 <Badge variant="outline">Uninitialized</Badge>
@@ -560,16 +698,26 @@ function AdminDashboard() {
             </div>
           </div>
           <div>
-            <span className="text-xs text-muted-foreground">Genesis Authority</span>
-            <p className="font-mono text-xs font-bold text-foreground mt-1">{truncate(GENESIS_AUTHORITY)}</p>
+            <span className="text-xs text-muted-foreground">
+              Genesis Authority
+            </span>
+            <p className="font-mono text-xs font-bold text-foreground mt-1">
+              {truncate(GENESIS_AUTHORITY)}
+            </p>
           </div>
           <div>
-            <span className="text-xs text-muted-foreground">Active Cluster</span>
-            <p className="font-bold text-sm text-primary capitalize mt-0.5">{cluster}</p>
+            <span className="text-xs text-muted-foreground">
+              Active Cluster
+            </span>
+            <p className="font-bold text-sm text-primary capitalize mt-0.5">
+              {cluster}
+            </p>
           </div>
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Treasury Balance</span>
+              <span className="text-xs text-muted-foreground">
+                Treasury Balance
+              </span>
               {cluster === "localnet" && (
                 <button
                   type="button"
@@ -582,7 +730,9 @@ function AdminDashboard() {
               )}
             </div>
             <p className="text-sm font-bold tabular-nums text-foreground mt-0.5">
-              {treasuryBalance ? `${formatCompact(treasuryBalance.amount, treasuryBalance.decimals)} USDC` : "—"}
+              {treasuryBalance
+                ? `${formatCompact(treasuryBalance.amount, treasuryBalance.decimals)} USDC`
+                : "—"}
             </p>
           </div>
         </div>
@@ -595,10 +745,14 @@ function AdminDashboard() {
             <div className="space-y-1 max-w-xl">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
-                <h3 className="text-base font-bold">1-Click Complete Protocol Bootstrap</h3>
+                <h3 className="text-base font-bold">
+                  1-Click Complete Protocol Bootstrap
+                </h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                Automatically creates the governance mint, sets up the stablecoin mint, initializes the treasury ATA, and broadcasts the on-chain DAO constitution in one unified flow.
+                Automatically creates the governance mint, sets up the
+                stablecoin mint, initializes the treasury ATA, and broadcasts
+                the on-chain DAO constitution in one unified flow.
               </p>
             </div>
             <Button
@@ -606,14 +760,21 @@ function AdminDashboard() {
               disabled={isBootstrapping || isSending}
               className="bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 text-xs h-10 px-5 gap-2 shrink-0"
             >
-              <Zap className="h-4 w-4" /> {isBootstrapping ? "Bootstrapping on Solana..." : "⚡ 1-Click Protocol Bootstrap"}
+              <Zap className="h-4 w-4" />{" "}
+              {isBootstrapping
+                ? "Bootstrapping on Solana..."
+                : "⚡ 1-Click Protocol Bootstrap"}
             </Button>
           </div>
         </Card>
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="w-full space-y-6"
+      >
         <TabsList className="grid w-full grid-cols-4 max-w-2xl">
           <TabsTrigger value="bootstrap" className="text-xs">
             1 · Bootstrap &amp; Config
@@ -635,7 +796,8 @@ function AdminDashboard() {
             <Card className="border-primary/40 p-6 space-y-4">
               <div className="space-y-1">
                 <h3 className="text-base font-bold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" /> Step-by-Step Manual Initialization
+                  <Sparkles className="h-4 w-4 text-primary" /> Step-by-Step
+                  Manual Initialization
                 </h3>
                 <p className="text-xs text-muted-foreground">
                   Configure each on-chain parameter individually.
@@ -646,45 +808,125 @@ function AdminDashboard() {
               <div className="grid gap-4 sm:grid-cols-3 text-xs">
                 <div className="space-y-1.5">
                   <Label>Voting Delay (seconds)</Label>
-                  <Input value={params.votingDelaySecs} onChange={(e) => setParams(p => ({ ...p, votingDelaySecs: e.target.value }))} className="text-xs" />
+                  <Input
+                    value={params.votingDelaySecs}
+                    onChange={(e) =>
+                      setParams((p) => ({
+                        ...p,
+                        votingDelaySecs: e.target.value,
+                      }))
+                    }
+                    className="text-xs"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Voting Period (seconds)</Label>
-                  <Input value={params.votingPeriodSecs} onChange={(e) => setParams(p => ({ ...p, votingPeriodSecs: e.target.value }))} className="text-xs" />
+                  <Input
+                    value={params.votingPeriodSecs}
+                    onChange={(e) =>
+                      setParams((p) => ({
+                        ...p,
+                        votingPeriodSecs: e.target.value,
+                      }))
+                    }
+                    className="text-xs"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Timelock Delay (seconds)</Label>
-                  <Input value={params.timelockDelaySecs} onChange={(e) => setParams(p => ({ ...p, timelockDelaySecs: e.target.value }))} className="text-xs" />
+                  <Input
+                    value={params.timelockDelaySecs}
+                    onChange={(e) =>
+                      setParams((p) => ({
+                        ...p,
+                        timelockDelaySecs: e.target.value,
+                      }))
+                    }
+                    className="text-xs"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Quorum (basis points, 4000 = 40%)</Label>
-                  <Input value={params.quorumBps} onChange={(e) => setParams(p => ({ ...p, quorumBps: e.target.value }))} className="text-xs" />
+                  <Input
+                    value={params.quorumBps}
+                    onChange={(e) =>
+                      setParams((p) => ({ ...p, quorumBps: e.target.value }))
+                    }
+                    className="text-xs"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Proposal Threshold (tokens)</Label>
-                  <Input value={params.proposalThresholdTokens} onChange={(e) => setParams(p => ({ ...p, proposalThresholdTokens: e.target.value }))} className="text-xs" />
+                  <Input
+                    value={params.proposalThresholdTokens}
+                    onChange={(e) =>
+                      setParams((p) => ({
+                        ...p,
+                        proposalThresholdTokens: e.target.value,
+                      }))
+                    }
+                    className="text-xs"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Max Governance Token Supply</Label>
-                  <Input value={params.maxGovernanceSupplyTokens} onChange={(e) => setParams(p => ({ ...p, maxGovernanceSupplyTokens: e.target.value }))} className="text-xs" />
+                  <Input
+                    value={params.maxGovernanceSupplyTokens}
+                    onChange={(e) =>
+                      setParams((p) => ({
+                        ...p,
+                        maxGovernanceSupplyTokens: e.target.value,
+                      }))
+                    }
+                    className="text-xs"
+                  />
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 {!govMintAddress && (
-                  <Button size="sm" variant="secondary" onClick={createGovMint} disabled={isSending || !signer || !isGenesis} className="text-xs">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={createGovMint}
+                    disabled={isSending || !signer || !isGenesis}
+                    className="text-xs"
+                  >
                     1. Create Governance Mint
                   </Button>
                 )}
                 {cluster === "localnet" && !mockUsdcAddress && (
-                  <Button size="sm" variant="secondary" onClick={createMockUsdc} disabled={isSending || !signer || !isGenesis} className="text-xs">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={createMockUsdc}
+                    disabled={isSending || !signer || !isGenesis}
+                    className="text-xs"
+                  >
                     2. Create Mock USDC
                   </Button>
                 )}
-                <Button size="sm" variant="secondary" onClick={createTreasury} disabled={isSending || !signer || !stablecoinMint} className="text-xs">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={createTreasury}
+                  disabled={isSending || !signer || !stablecoinMint}
+                  className="text-xs"
+                >
                   3. Create Treasury ATA
                 </Button>
-                <Button size="sm" onClick={initDao} disabled={isSending || !signer || !isGenesis || !effectiveGovMint || !stablecoinMint} className="text-xs">
+                <Button
+                  size="sm"
+                  onClick={initDao}
+                  disabled={
+                    isSending ||
+                    !signer ||
+                    !isGenesis ||
+                    !effectiveGovMint ||
+                    !stablecoinMint
+                  }
+                  className="text-xs"
+                >
                   4. Initialize DAO Program
                 </Button>
               </div>
@@ -694,13 +936,17 @@ function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-green-600" /> Active DAO Constitution
+                    <ShieldCheck className="h-4 w-4 text-green-600" /> Active
+                    DAO Constitution
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     Parameters stored on-chain in the canonical Governor PDA.
                   </p>
                 </div>
-                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+                <Badge
+                  variant="outline"
+                  className="bg-green-500/10 text-green-600 border-green-500/20 text-xs"
+                >
                   Initialized ✓
                 </Badge>
               </div>
@@ -708,28 +954,52 @@ function AdminDashboard() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs font-mono">
                 <div className="rounded-xl bg-muted/20 border p-3">
-                  <span className="text-muted-foreground font-sans text-[11px]">Voting Period</span>
-                  <p className="font-bold text-foreground mt-0.5">{formatDuration(daoConfig.votingPeriod)}</p>
+                  <span className="text-muted-foreground font-sans text-[11px]">
+                    Voting Period
+                  </span>
+                  <p className="font-bold text-foreground mt-0.5">
+                    {formatDuration(daoConfig.votingPeriod)}
+                  </p>
                 </div>
                 <div className="rounded-xl bg-muted/20 border p-3">
-                  <span className="text-muted-foreground font-sans text-[11px]">Timelock Delay</span>
-                  <p className="font-bold text-foreground mt-0.5">{formatDuration(daoConfig.timelockDelay)}</p>
+                  <span className="text-muted-foreground font-sans text-[11px]">
+                    Timelock Delay
+                  </span>
+                  <p className="font-bold text-foreground mt-0.5">
+                    {formatDuration(daoConfig.timelockDelay)}
+                  </p>
                 </div>
                 <div className="rounded-xl bg-muted/20 border p-3">
-                  <span className="text-muted-foreground font-sans text-[11px]">Quorum</span>
-                  <p className="font-bold text-foreground mt-0.5">{(daoConfig.quorumBps / 100).toFixed(1)}%</p>
+                  <span className="text-muted-foreground font-sans text-[11px]">
+                    Quorum
+                  </span>
+                  <p className="font-bold text-foreground mt-0.5">
+                    {(daoConfig.quorumBps / 100).toFixed(1)}%
+                  </p>
                 </div>
                 <div className="rounded-xl bg-muted/20 border p-3">
-                  <span className="text-muted-foreground font-sans text-[11px]">Proposal Threshold</span>
-                  <p className="font-bold text-foreground mt-0.5">{rawToDecimal(daoConfig.proposalThreshold, 6)} Tokens</p>
+                  <span className="text-muted-foreground font-sans text-[11px]">
+                    Proposal Threshold
+                  </span>
+                  <p className="font-bold text-foreground mt-0.5">
+                    {rawToDecimal(daoConfig.proposalThreshold, 6)} Tokens
+                  </p>
                 </div>
                 <div className="rounded-xl bg-muted/20 border p-3">
-                  <span className="text-muted-foreground font-sans text-[11px]">Max Supply Cap</span>
-                  <p className="font-bold text-foreground mt-0.5">{rawToDecimal(daoConfig.maxGovernanceSupply, 6)} Tokens</p>
+                  <span className="text-muted-foreground font-sans text-[11px]">
+                    Max Supply Cap
+                  </span>
+                  <p className="font-bold text-foreground mt-0.5">
+                    {rawToDecimal(daoConfig.maxGovernanceSupply, 6)} Tokens
+                  </p>
                 </div>
                 <div className="rounded-xl bg-muted/20 border p-3">
-                  <span className="text-muted-foreground font-sans text-[11px]">Treasury Account</span>
-                  <p className="font-bold text-foreground truncate mt-0.5">{truncate(daoConfig.treasury)}</p>
+                  <span className="text-muted-foreground font-sans text-[11px]">
+                    Treasury Account
+                  </span>
+                  <p className="font-bold text-foreground truncate mt-0.5">
+                    {truncate(daoConfig.treasury)}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -741,7 +1011,8 @@ function AdminDashboard() {
           <Card className="border-border/60 p-6 space-y-4">
             <div>
               <h3 className="text-base font-bold flex items-center gap-2">
-                <Coins className="h-4 w-4 text-primary" /> Governance Token ($ARTHA) Management
+                <Coins className="h-4 w-4 text-primary" /> Governance Token
+                ($ARTHA) Management
               </h3>
               <p className="text-xs text-muted-foreground">
                 Manage the SPL Governance Token and Metaplex Metadata CPI.
@@ -753,17 +1024,25 @@ function AdminDashboard() {
               <div className="space-y-4 text-xs">
                 <div className="rounded-xl bg-muted/30 border p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Governance Mint:</span>
-                    <span className="font-mono font-bold">{govTokenState.mint}</span>
+                    <span className="text-muted-foreground">
+                      Governance Mint:
+                    </span>
+                    <span className="font-mono font-bold">
+                      {govTokenState.mint}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Minted:</span>
-                    <span className="font-bold tabular-nums text-primary">{rawToDecimal(govTokenState.totalMinted, 6)} Tokens</span>
+                    <span className="font-bold tabular-nums text-primary">
+                      {rawToDecimal(govTokenState.totalMinted, 6)} Tokens
+                    </span>
                   </div>
                 </div>
 
                 <div className="space-y-2 pt-2">
-                  <Label>Mint Additional Governance Tokens (Capped by Constitution)</Label>
+                  <Label>
+                    Mint Additional Governance Tokens (Capped by Constitution)
+                  </Label>
                   <div className="flex items-center gap-2">
                     <Input
                       value={mintAmount}
@@ -771,7 +1050,12 @@ function AdminDashboard() {
                       placeholder="10000"
                       className="max-w-xs text-xs"
                     />
-                    <Button size="sm" onClick={mintGovTokens} disabled={isSending || !signer || !effectiveGovMint} className="text-xs">
+                    <Button
+                      size="sm"
+                      onClick={mintGovTokens}
+                      disabled={isSending || !signer || !effectiveGovMint}
+                      className="text-xs"
+                    >
                       Mint to Operator Wallet
                     </Button>
                   </div>
@@ -782,25 +1066,46 @@ function AdminDashboard() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label>Token Name</Label>
-                    <Input value={govMeta.name} onChange={(e) => setGovMeta(m => ({ ...m, name: e.target.value }))} className="text-xs" />
+                    <Input
+                      value={govMeta.name}
+                      onChange={(e) =>
+                        setGovMeta((m) => ({ ...m, name: e.target.value }))
+                      }
+                      className="text-xs"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Symbol</Label>
-                    <Input value={govMeta.symbol} onChange={(e) => setGovMeta(m => ({ ...m, symbol: e.target.value }))} className="text-xs" />
+                    <Input
+                      value={govMeta.symbol}
+                      onChange={(e) =>
+                        setGovMeta((m) => ({ ...m, symbol: e.target.value }))
+                      }
+                      className="text-xs"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Metaplex Metadata URI</Label>
-                    <Input value={govMeta.uri} onChange={(e) => setGovMeta(m => ({ ...m, uri: e.target.value }))} className="text-xs" />
+                    <Input
+                      value={govMeta.uri}
+                      onChange={(e) =>
+                        setGovMeta((m) => ({ ...m, uri: e.target.value }))
+                      }
+                      className="text-xs"
+                    />
                   </div>
                 </div>
 
                 <Button
                   size="sm"
                   onClick={initGovToken}
-                  disabled={isSending || !signer || !isGenesis || !effectiveGovMint}
+                  disabled={
+                    isSending || !signer || !isGenesis || !effectiveGovMint
+                  }
                   className="text-xs gap-1.5"
                 >
-                  <Sparkles className="h-3.5 w-3.5" /> Initialize Metaplex Token Metadata
+                  <Sparkles className="h-3.5 w-3.5" /> Initialize Metaplex Token
+                  Metadata
                 </Button>
               </div>
             )}
@@ -815,7 +1120,8 @@ function AdminDashboard() {
                 <Zap className="h-4 w-4 text-primary" /> Test Stablecoin Faucet
               </h3>
               <p className="text-xs text-muted-foreground">
-                Mint test USDC stablecoins for localnet testing, campaign donations, and milestone simulation.
+                Mint test USDC stablecoins for localnet testing, campaign
+                donations, and milestone simulation.
               </p>
             </div>
             <Separator />
@@ -823,14 +1129,24 @@ function AdminDashboard() {
             {cluster === "localnet" ? (
               <div className="space-y-4 text-xs">
                 {!mockUsdcAddress ? (
-                  <Button size="sm" variant="secondary" onClick={createMockUsdc} disabled={isSending || !signer || !isGenesis} className="text-xs">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={createMockUsdc}
+                    disabled={isSending || !signer || !isGenesis}
+                    className="text-xs"
+                  >
                     Create Mock USDC SPL Mint
                   </Button>
                 ) : (
                   <div className="space-y-3">
                     <div className="rounded-xl bg-muted/20 border p-3 flex justify-between items-center">
-                      <span className="text-muted-foreground">Mock USDC Mint:</span>
-                      <span className="font-mono font-bold">{mockUsdcAddress}</span>
+                      <span className="text-muted-foreground">
+                        Mock USDC Mint:
+                      </span>
+                      <span className="font-mono font-bold">
+                        {mockUsdcAddress}
+                      </span>
                     </div>
 
                     <div className="space-y-1.5">
@@ -843,7 +1159,12 @@ function AdminDashboard() {
                       />
                     </div>
 
-                    <Button size="sm" onClick={airdropMockUsdc} disabled={isSending || !signer} className="text-xs gap-1.5">
+                    <Button
+                      size="sm"
+                      onClick={airdropMockUsdc}
+                      disabled={isSending || !signer}
+                      className="text-xs gap-1.5"
+                    >
                       <Zap className="h-3.5 w-3.5" /> Mint 100,000 Test USDC
                     </Button>
                   </div>
@@ -851,9 +1172,16 @@ function AdminDashboard() {
               </div>
             ) : (
               <div className="rounded-xl bg-muted/30 p-4 text-xs space-y-2">
-                <p className="font-semibold text-foreground">Devnet / Mainnet Stablecoin</p>
+                <p className="font-semibold text-foreground">
+                  Devnet / Mainnet Stablecoin
+                </p>
                 <p className="text-muted-foreground">
-                  On this cluster, Arthasetu binds directly to canonical USDC (<span className="font-mono text-foreground">{getClusterUsdcMint(cluster)}</span>). Use the official Circle or Solana devnet faucet to receive test tokens.
+                  On this cluster, Arthasetu binds directly to canonical USDC (
+                  <span className="font-mono text-foreground">
+                    {getClusterUsdcMint(cluster)}
+                  </span>
+                  ). Use the official Circle or Solana devnet faucet to receive
+                  test tokens.
                 </p>
               </div>
             )}
@@ -868,7 +1196,8 @@ function AdminDashboard() {
                 <AlertTriangle className="h-4 w-4" /> Emergency Circuit Breaker
               </h3>
               <p className="text-xs text-muted-foreground">
-                Pausing the protocol immediately halts all campaign donations, milestone releases, and non-governance fund movements.
+                Pausing the protocol immediately halts all campaign donations,
+                milestone releases, and non-governance fund movements.
               </p>
             </div>
             <Separator />
@@ -876,10 +1205,17 @@ function AdminDashboard() {
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
               <div>
                 <p className="font-semibold text-foreground">
-                  Status: {daoConfig?.paused ? "PAUSED (Emergency Active)" : "OPERATIONAL (Live)"}
+                  Status:{" "}
+                  {daoConfig?.paused
+                    ? "PAUSED (Emergency Active)"
+                    : "OPERATIONAL (Live)"}
                 </p>
                 <p className="text-muted-foreground">
-                  Only the protocol authority (<span className="font-mono">{truncate(daoConfig?.authority || "")}</span>) can toggle this state.
+                  Only the protocol authority (
+                  <span className="font-mono">
+                    {truncate(daoConfig?.authority || "")}
+                  </span>
+                  ) can toggle this state.
                 </p>
               </div>
 
@@ -891,19 +1227,31 @@ function AdminDashboard() {
                   disabled={isSending || !signer || !isGenesis}
                   className="text-xs"
                 >
-                  {daoConfig.paused ? "Resume Protocol Operations" : "Halt Protocol (Trip Circuit Breaker)"}
+                  {daoConfig.paused
+                    ? "Resume Protocol Operations"
+                    : "Halt Protocol (Trip Circuit Breaker)"}
                 </Button>
               )}
             </div>
 
             {pendingAuthority && (
               <div className="rounded-xl bg-muted/30 border p-4 space-y-2 text-xs pt-4">
-                <p className="font-semibold text-foreground">Pending Authority Handover</p>
+                <p className="font-semibold text-foreground">
+                  Pending Authority Handover
+                </p>
                 <p className="text-muted-foreground">
-                  New authority nominated: <span className="font-mono font-bold text-foreground">{pendingAuthority}</span>
+                  New authority nominated:{" "}
+                  <span className="font-mono font-bold text-foreground">
+                    {pendingAuthority}
+                  </span>
                 </p>
                 {pendingAuthority === address && (
-                  <Button size="sm" onClick={acceptAuthority} disabled={isSending || !signer} className="text-xs mt-2">
+                  <Button
+                    size="sm"
+                    onClick={acceptAuthority}
+                    disabled={isSending || !signer}
+                    className="text-xs mt-2"
+                  >
                     Claim &amp; Accept Authority
                   </Button>
                 )}

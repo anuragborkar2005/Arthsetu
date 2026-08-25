@@ -75,6 +75,7 @@ import {
 } from "lucide-react";
 import { ConnectGate } from "../../components/fydao/shared";
 import { truncate } from "@/app/lib/fydao/format";
+import { MarkdownContent } from "../../components/markdown-content";
 
 const DRAFT_KEY = "arthasetu:campaign:draft:v2";
 
@@ -141,28 +142,43 @@ function CampaignCreatorWizard() {
 
   const [step, setStep] = useState(1);
   const [txSignature, setTxSignature] = useState<string | null>(null);
-  const [createdCampaignId, setCreatedCampaignId] = useState<bigint | null>(null);
+  const [createdCampaignId, setCreatedCampaignId] = useState<bigint | null>(
+    null
+  );
   const [pinnedCid, setPinnedCid] = useState<string | null>(null);
 
   // Step 1: Identity & Branding
   const [title, setTitle] = useState(initialDraft.title || "");
   const [tagline, setTagline] = useState(initialDraft.tagline || "");
-  const [category, setCategory] = useState<string>(initialDraft.category || "technology");
+  const [category, setCategory] = useState<string>(
+    initialDraft.category || "technology"
+  );
   const [logoUrl, setLogoUrl] = useState(initialDraft.logoUrl || "");
-  const [bannerUrl, setBannerUrl] = useState(initialDraft.bannerUrl || SAMPLE_BANNERS[0]);
+  const [bannerUrl, setBannerUrl] = useState(
+    initialDraft.bannerUrl || SAMPLE_BANNERS[0]
+  );
   const [websiteUrl, setWebsiteUrl] = useState(initialDraft.websiteUrl || "");
   const [twitterUrl, setTwitterUrl] = useState(initialDraft.twitterUrl || "");
   const [githubUrl, setGithubUrl] = useState(initialDraft.githubUrl || "");
-  const [contactEmail, setContactEmail] = useState(initialDraft.contactEmail || "");
+  const [contactEmail, setContactEmail] = useState(
+    initialDraft.contactEmail || ""
+  );
 
   // Step 2: Documents & Privacy AI Audit
-  const [documents, setDocuments] = useState<DocumentAttachment[]>(initialDraft.documents || []);
+  const [documents, setDocuments] = useState<DocumentAttachment[]>(
+    initialDraft.documents || []
+  );
   const [isUploadingDocs, setIsUploadingDocs] = useState(false);
   const [isScanningAi, setIsScanningAi] = useState(false);
-  const [aiAuditReport, setAiAuditReport] = useState<AiAuditReport | null>(initialDraft.aiAuditReport || null);
+  const [aiAuditReport, setAiAuditReport] = useState<AiAuditReport | null>(
+    initialDraft.aiAuditReport || null
+  );
 
   // Step 3: Story & Roadmap
-  const [description, setDescription] = useState(initialDraft.description || DEFAULT_STORY);
+  const [description, setDescription] = useState(
+    initialDraft.description || DEFAULT_STORY
+  );
+  const [storyTab, setStoryTab] = useState<"write" | "preview">("write");
   const [milestones, setMilestones] = useState<CampaignMilestonePlan[]>(
     initialDraft.milestones && initialDraft.milestones.length > 0
       ? initialDraft.milestones
@@ -170,15 +186,20 @@ function CampaignCreatorWizard() {
           {
             id: 0,
             title: "Alpha Protocol & Architecture Verification",
-            description: "Deploy core Solana programs to devnet with complete test coverage.",
+            description:
+              "Deploy core Solana programs to devnet with complete test coverage.",
             targetAmountUsdc: "10000",
             estimatedDurationDays: 30,
-            deliverableCriteria: ["Devnet deployed program ID", "Passed test suite"],
+            deliverableCriteria: [
+              "Devnet deployed program ID",
+              "Passed test suite",
+            ],
           },
           {
             id: 1,
             title: "Beta Launch & UI Release",
-            description: "Public beta release on Solana with user onboarding and client SDK.",
+            description:
+              "Public beta release on Solana with user onboarding and client SDK.",
             targetAmountUsdc: "15000",
             estimatedDurationDays: 45,
             deliverableCriteria: ["Live web app URL", "Audit report"],
@@ -187,9 +208,15 @@ function CampaignCreatorWizard() {
   );
 
   // Step 4: Funding & Verifier
-  const [targetFundingUsdc, setTargetFundingUsdc] = useState(initialDraft.targetFundingUsdc || "25000");
-  const [trustScore, setTrustScore] = useState<number>(initialDraft.trustScore || 75);
-  const [verifier, setVerifier] = useState(initialDraft.verifier || address || "");
+  const [targetFundingUsdc, setTargetFundingUsdc] = useState(
+    initialDraft.targetFundingUsdc || "25000"
+  );
+  const [trustScore, setTrustScore] = useState<number>(
+    initialDraft.trustScore || 75
+  );
+  const [verifier, setVerifier] = useState(
+    initialDraft.verifier || address || ""
+  );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -233,11 +260,24 @@ function CampaignCreatorWizard() {
         const textSnippet = await extractDocumentText(file);
         let cat: DocumentAttachment["category"] = "other";
         const fname = file.name.toLowerCase();
-        if (fname.includes("whitepaper") || fname.includes("wp")) cat = "whitepaper";
-        else if (fname.includes("budget") || fname.includes("finance") || fname.includes("cost")) cat = "budget";
-        else if (fname.includes("pitch") || fname.includes("deck")) cat = "pitch_deck";
-        else if (fname.includes("spec") || fname.includes("architecture")) cat = "technical_spec";
-        else if (fname.includes("id") || fname.includes("kyc") || fname.includes("reg")) cat = "identity";
+        if (fname.includes("whitepaper") || fname.includes("wp"))
+          cat = "whitepaper";
+        else if (
+          fname.includes("budget") ||
+          fname.includes("finance") ||
+          fname.includes("cost")
+        )
+          cat = "budget";
+        else if (fname.includes("pitch") || fname.includes("deck"))
+          cat = "pitch_deck";
+        else if (fname.includes("spec") || fname.includes("architecture"))
+          cat = "technical_spec";
+        else if (
+          fname.includes("id") ||
+          fname.includes("kyc") ||
+          fname.includes("reg")
+        )
+          cat = "identity";
 
         newAttachments.push({
           name: file.name,
@@ -249,7 +289,9 @@ function CampaignCreatorWizard() {
         });
       }
       setDocuments((prev) => [...prev, ...newAttachments]);
-      toast.success(`Attached and hashed ${newAttachments.length} document(s) with SHA-256!`);
+      toast.success(
+        `Attached and hashed ${newAttachments.length} document(s) with SHA-256!`
+      );
     } catch (err: any) {
       toast.error("Failed to process documents: " + err.message);
     } finally {
@@ -276,7 +318,9 @@ function CampaignCreatorWizard() {
       });
       setAiAuditReport(report);
       setTrustScore(report.trustScore);
-      toast.success(`Privacy AI Audit completed! Generated Trust Score: ${report.trustScore}/100`);
+      toast.success(
+        `Privacy AI Audit completed! Generated Trust Score: ${report.trustScore}/100`
+      );
     } catch (err: any) {
       toast.error("AI audit failed: " + err.message);
     } finally {
@@ -286,14 +330,15 @@ function CampaignCreatorWizard() {
 
   const applySuggestedMilestones = () => {
     if (!aiAuditReport || !aiAuditReport.suggestedMilestones.length) return;
-    const mapped: CampaignMilestonePlan[] = aiAuditReport.suggestedMilestones.map((m) => ({
-      id: m.id,
-      title: m.title,
-      description: m.description,
-      targetAmountUsdc: m.targetAmountUsdc,
-      estimatedDurationDays: m.estimatedDurationDays,
-      deliverableCriteria: m.deliverableCriteria,
-    }));
+    const mapped: CampaignMilestonePlan[] =
+      aiAuditReport.suggestedMilestones.map((m) => ({
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        targetAmountUsdc: m.targetAmountUsdc,
+        estimatedDurationDays: m.estimatedDurationDays,
+        deliverableCriteria: m.deliverableCriteria,
+      }));
     setMilestones(mapped);
     toast.success("Applied AI-crafted milestone roadmap tranches!");
   };
@@ -304,7 +349,8 @@ function CampaignCreatorWizard() {
       {
         id: prev.length,
         title: `Milestone #${prev.length}`,
-        description: "Describe what will be delivered for this milestone release.",
+        description:
+          "Describe what will be delivered for this milestone release.",
         targetAmountUsdc: "5000",
         estimatedDurationDays: 30,
         deliverableCriteria: ["Verifiable deliverable proofs"],
@@ -318,12 +364,19 @@ function CampaignCreatorWizard() {
       return;
     }
     setMilestones((prev) =>
-      prev.filter((_, i) => i !== idx).map((m, newIdx) => ({ ...m, id: newIdx }))
+      prev
+        .filter((_, i) => i !== idx)
+        .map((m, newIdx) => ({ ...m, id: newIdx }))
     );
   };
 
-  const updateMilestone = (idx: number, patch: Partial<CampaignMilestonePlan>) => {
-    setMilestones((prev) => prev.map((m, i) => (i === idx ? { ...m, ...patch } : m)));
+  const updateMilestone = (
+    idx: number,
+    patch: Partial<CampaignMilestonePlan>
+  ) => {
+    setMilestones((prev) =>
+      prev.map((m, i) => (i === idx ? { ...m, ...patch } : m))
+    );
   };
 
   const validateStep = (s: number): boolean => {
@@ -339,7 +392,8 @@ function CampaignCreatorWizard() {
       }
     } else if (s === 3) {
       if (!description.trim() || description.length < 30) {
-        errs.description = "Please provide a detailed story of at least 30 characters";
+        errs.description =
+          "Please provide a detailed story of at least 30 characters";
       }
       if (milestones.length === 0) {
         errs.milestones = "At least one planned milestone is required";
@@ -393,8 +447,12 @@ function CampaignCreatorWizard() {
     }
 
     // Final Trust Score to record on-chain
-    const finalTrustScore = aiAuditReport ? aiAuditReport.trustScore : trustScore;
-    const parsedTrust = BigInt(Math.max(0, Math.min(100, Number(finalTrustScore) || 50)));
+    const finalTrustScore = aiAuditReport
+      ? aiAuditReport.trustScore
+      : trustScore;
+    const parsedTrust = BigInt(
+      Math.max(0, Math.min(100, Number(finalTrustScore) || 50))
+    );
 
     const campaignMetadata: CampaignMetadata = {
       version: "1.1.0",
@@ -458,7 +516,7 @@ function CampaignCreatorWizard() {
 
   if (txSignature && createdCampaignId !== null) {
     return (
-      <Card className="border-primary/40 bg-gradient-to-b from-primary/5 to-card p-8 text-center sm:p-12">
+      <Card className="border-primary/40 bg-linear-to-b from-primary/5 to-card p-8 text-center sm:p-12">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
           <Rocket className="h-8 w-8" />
         </div>
@@ -487,7 +545,8 @@ function CampaignCreatorWizard() {
           <div className="flex justify-between">
             <span className="text-muted-foreground">On-Chain Trust Score:</span>
             <span className="text-primary font-bold">
-              {aiAuditReport?.trustScore || trustScore} / 100 ({aiAuditReport?.rating || "Verified"})
+              {aiAuditReport?.trustScore || trustScore} / 100 (
+              {aiAuditReport?.rating || "Verified"})
             </span>
           </div>
           <div className="flex justify-between">
@@ -518,7 +577,8 @@ function CampaignCreatorWizard() {
           </Button>
           <Link href={`/campaigns/${createdCampaignId.toString()}`}>
             <Button className="gap-2">
-              View Campaign &amp; Propose DAO Vote <ArrowRight className="h-4 w-4" />
+              View Campaign &amp; Propose DAO Vote{" "}
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
@@ -557,8 +617,8 @@ function CampaignCreatorWizard() {
                 isActive
                   ? "border-primary bg-primary/5 shadow-xs"
                   : isDone
-                  ? "border-border/80 bg-muted/20 cursor-pointer hover:bg-muted/40"
-                  : "border-border/40 opacity-60"
+                    ? "border-border/80 bg-muted/20 cursor-pointer hover:bg-muted/40"
+                    : "border-border/40 opacity-60"
               }`}
             >
               <div
@@ -566,8 +626,8 @@ function CampaignCreatorWizard() {
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : isDone
-                    ? "bg-muted-foreground/30 text-foreground"
-                    : "bg-muted text-muted-foreground"
+                      ? "bg-muted-foreground/30 text-foreground"
+                      : "bg-muted text-muted-foreground"
                 }`}
               >
                 {isDone ? <Check className="h-3.5 w-3.5" /> : s.id}
@@ -589,7 +649,8 @@ function CampaignCreatorWizard() {
           <CardHeader>
             <CardTitle>1. Project Identity &amp; Branding</CardTitle>
             <CardDescription>
-              Introduce your initiative. Provide high-level details, category classification, and project links.
+              Introduce your initiative. Provide high-level details, category
+              classification, and project links.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -727,10 +788,14 @@ function CampaignCreatorWizard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Cpu className="h-5 w-5 text-primary" /> 2. Supporting Documents &amp; Privacy AI Audit
+                  <Cpu className="h-5 w-5 text-primary" /> 2. Supporting
+                  Documents &amp; Privacy AI Audit
                 </CardTitle>
                 <CardDescription>
-                  Upload whitepapers, budget breakdowns, or pitch decks. Our privacy-preserving engine scans documents with zero data retention, checks for AI-generation/authenticity, and calculates an on-chain Trust Score.
+                  Upload whitepapers, budget breakdowns, or pitch decks. Our
+                  privacy-preserving engine scans documents with zero data
+                  retention, checks for AI-generation/authenticity, and
+                  calculates an on-chain Trust Score.
                 </CardDescription>
               </div>
             </div>
@@ -743,7 +808,8 @@ function CampaignCreatorWizard() {
                 Upload Whitepaper, Budget Sheet, Pitch Deck, or Specs
               </h3>
               <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
-                Files are hashed with SHA-256 in your browser. Supports PDF, MD, TXT, JSON, DOCX, CSV.
+                Files are hashed with SHA-256 in your browser. Supports PDF, MD,
+                TXT, JSON, DOCX, CSV.
               </p>
               <div className="mt-4 flex justify-center">
                 <label className="cursor-pointer">
@@ -761,7 +827,10 @@ function CampaignCreatorWizard() {
                     className="gap-2 pointer-events-none"
                     disabled={isUploadingDocs}
                   >
-                    <Plus className="h-4 w-4" /> {isUploadingDocs ? "Processing..." : "Select Document Files"}
+                    <Plus className="h-4 w-4" />{" "}
+                    {isUploadingDocs
+                      ? "Processing..."
+                      : "Select Document Files"}
                   </Button>
                 </label>
               </div>
@@ -784,12 +853,17 @@ function CampaignCreatorWizard() {
                         <div className="min-w-0">
                           <p className="font-semibold truncate">{doc.name}</p>
                           <p className="text-[10px] text-muted-foreground font-mono truncate">
-                            SHA-256: {doc.sha256.slice(0, 16)}...{doc.sha256.slice(-8)} · {(doc.size / 1024).toFixed(1)} KB
+                            SHA-256: {doc.sha256.slice(0, 16)}...
+                            {doc.sha256.slice(-8)} ·{" "}
+                            {(doc.size / 1024).toFixed(1)} KB
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="secondary" className="capitalize text-[10px]">
+                        <Badge
+                          variant="secondary"
+                          className="capitalize text-[10px]"
+                        >
                           {doc.category.replace("_", " ")}
                         </Badge>
                         <button
@@ -811,10 +885,12 @@ function CampaignCreatorWizard() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
-                    <Sparkles className="h-4 w-4" /> Privacy-Preserving AI Trust Verification
+                    <Sparkles className="h-4 w-4" /> Privacy-Preserving AI Trust
+                    Verification
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Analyzes cross-document consistency, detects generic AI spam, and validates milestone scopes.
+                    Analyzes cross-document consistency, detects generic AI
+                    spam, and validates milestone scopes.
                   </p>
                 </div>
                 <Button
@@ -824,14 +900,20 @@ function CampaignCreatorWizard() {
                   className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm"
                 >
                   <Cpu className="h-4 w-4" />
-                  {isScanningAi ? "Scanning Documents..." : aiAuditReport ? "Re-Run AI Audit" : "Run AI Audit & Scoring"}
+                  {isScanningAi
+                    ? "Scanning Documents..."
+                    : aiAuditReport
+                      ? "Re-Run AI Audit"
+                      : "Run AI Audit & Scoring"}
                 </Button>
               </div>
 
               {isScanningAi && (
                 <div className="space-y-2 pt-2 animate-pulse">
                   <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                    <span>Evaluating authenticity &amp; deliverable verifiability...</span>
+                    <span>
+                      Evaluating authenticity &amp; deliverable verifiability...
+                    </span>
                     <span>Analyzing</span>
                   </div>
                   <Progress value={65} className="h-1.5" />
@@ -843,33 +925,51 @@ function CampaignCreatorWizard() {
                 <div className="space-y-4 pt-2 border-t border-border/40">
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Trust Score</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Trust Score
+                      </span>
                       <p className="text-2xl font-extrabold text-primary tabular-nums mt-0.5">
-                        {aiAuditReport.trustScore} <span className="text-xs text-muted-foreground font-normal">/ 100</span>
+                        {aiAuditReport.trustScore}{" "}
+                        <span className="text-xs text-muted-foreground font-normal">
+                          / 100
+                        </span>
                       </p>
-                      <Badge variant="outline" className="mt-1 text-[10px] border-primary/40 bg-primary/10 text-primary">
+                      <Badge
+                        variant="outline"
+                        className="mt-1 text-[10px] border-primary/40 bg-primary/10 text-primary"
+                      >
                         {aiAuditReport.rating}
                       </Badge>
                     </div>
 
                     <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Authenticity</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Authenticity
+                      </span>
                       <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
                         {aiAuditReport.subScores.authenticityScore}%
                       </p>
-                      <span className="text-[10px] text-muted-foreground">Consistency</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Consistency
+                      </span>
                     </div>
 
                     <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Feasibility</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Feasibility
+                      </span>
                       <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
                         {aiAuditReport.subScores.feasibilityScore}%
                       </p>
-                      <span className="text-[10px] text-muted-foreground">Budget Scope</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Budget Scope
+                      </span>
                     </div>
 
                     <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">AI Content Risk</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        AI Content Risk
+                      </span>
                       <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
                         {aiAuditReport.aiGeneratedProbability}%
                       </p>
@@ -879,8 +979,8 @@ function CampaignCreatorWizard() {
                           aiAuditReport.aiGeneratedRisk === "Low"
                             ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
                             : aiAuditReport.aiGeneratedRisk === "Medium"
-                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                            : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
                         }`}
                       >
                         {aiAuditReport.aiGeneratedRisk} Risk
@@ -892,12 +992,14 @@ function CampaignCreatorWizard() {
                   <div className="grid gap-3 sm:grid-cols-2 text-xs">
                     <div className="rounded-xl bg-card/60 border border-border/60 p-3 space-y-1.5">
                       <span className="font-semibold text-foreground flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Key Strengths
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />{" "}
+                        Key Strengths
                       </span>
                       <ul className="space-y-1 text-muted-foreground">
                         {aiAuditReport.strengths.map((s, i) => (
                           <li key={i} className="flex items-start gap-1.5">
-                            <span className="text-primary">•</span> <span>{s}</span>
+                            <span className="text-primary">•</span>{" "}
+                            <span>{s}</span>
                           </li>
                         ))}
                       </ul>
@@ -905,45 +1007,55 @@ function CampaignCreatorWizard() {
 
                     <div className="rounded-xl bg-card/60 border border-border/60 p-3 space-y-1.5">
                       <span className="font-semibold text-foreground flex items-center gap-1">
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Risk Warnings &amp; Notes
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />{" "}
+                        Risk Warnings &amp; Notes
                       </span>
                       <ul className="space-y-1 text-muted-foreground">
                         {aiAuditReport.riskWarnings.length > 0 ? (
                           aiAuditReport.riskWarnings.map((w, i) => (
                             <li key={i} className="flex items-start gap-1.5">
-                              <span className="text-amber-500">•</span> <span>{w}</span>
+                              <span className="text-amber-500">•</span>{" "}
+                              <span>{w}</span>
                             </li>
                           ))
                         ) : (
-                          <li className="text-muted-foreground italic">No critical risk flags detected.</li>
+                          <li className="text-muted-foreground italic">
+                            No critical risk flags detected.
+                          </li>
                         )}
                       </ul>
                     </div>
                   </div>
 
                   {/* AI Suggested Milestones action */}
-                  {aiAuditReport.suggestedMilestones && aiAuditReport.suggestedMilestones.length > 0 && (
-                    <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs">
-                      <div className="flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4 text-primary" />
-                        <div>
-                          <span className="font-semibold text-foreground">AI-Crafted Milestone Roadmap Available</span>
-                          <p className="text-[11px] text-muted-foreground">
-                            Auto-generated {aiAuditReport.suggestedMilestones.length} structured milestone tranches matching your budget.
-                          </p>
+                  {aiAuditReport.suggestedMilestones &&
+                    aiAuditReport.suggestedMilestones.length > 0 && (
+                      <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Lightbulb className="h-4 w-4 text-primary" />
+                          <div>
+                            <span className="font-semibold text-foreground">
+                              AI-Crafted Milestone Roadmap Available
+                            </span>
+                            <p className="text-[11px] text-muted-foreground">
+                              Auto-generated{" "}
+                              {aiAuditReport.suggestedMilestones.length}{" "}
+                              structured milestone tranches matching your
+                              budget.
+                            </p>
+                          </div>
                         </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={applySuggestedMilestones}
+                          className="gap-1.5 font-semibold text-xs"
+                        >
+                          <Layers className="h-3.5 w-3.5" /> Apply Milestones
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={applySuggestedMilestones}
-                        className="gap-1.5 font-semibold text-xs"
-                      >
-                        <Layers className="h-3.5 w-3.5" /> Apply Milestones
-                      </Button>
-                    </div>
-                  )}
+                    )}
                 </div>
               )}
             </div>
@@ -965,27 +1077,62 @@ function CampaignCreatorWizard() {
           <CardHeader>
             <CardTitle>3. Project Story &amp; Milestone Roadmap</CardTitle>
             <CardDescription>
-              Detail your technical roadmap. Escrowed stablecoins will be released per milestone tranche only upon verifier co-signing and DAO approval.
+              Detail your technical roadmap. Escrowed stablecoins will be
+              released per milestone tranche only upon verifier co-signing and
+              DAO approval.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="description">
                   Full Project Story &amp; Architecture (Markdown) *
                 </Label>
-                <span className="text-xs text-muted-foreground">
-                  Supports GitHub Flavored Markdown
-                </span>
+                <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-muted/40 p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setStoryTab("write")}
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      storyTab === "write"
+                        ? "bg-background text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Write (Markdown)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStoryTab("preview")}
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      storyTab === "preview"
+                        ? "bg-background text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Preview
+                  </button>
+                </div>
               </div>
-              <Textarea
-                id="description"
-                rows={7}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Write an in-depth story explaining the vision, roadmap, and how escrowed funds will be allocated..."
-                className={errors.description ? "border-destructive font-mono text-xs" : "font-mono text-xs"}
-              />
+
+              {storyTab === "write" ? (
+                <Textarea
+                  id="description"
+                  rows={8}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Write an in-depth story explaining the vision, roadmap, and how escrowed funds will be allocated..."
+                  className={
+                    errors.description
+                      ? "border-destructive font-mono text-xs"
+                      : "font-mono text-xs"
+                  }
+                />
+              ) : (
+                <div className="rounded-xl border border-border/80 bg-card p-4 min-h-[180px] max-h-[300px] overflow-y-auto">
+                  <MarkdownContent content={description} />
+                </div>
+              )}
+
               {errors.description && (
                 <p className="text-xs text-destructive">{errors.description}</p>
               )}
@@ -995,7 +1142,8 @@ function CampaignCreatorWizard() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-primary" /> Planned Milestone Tranches ({milestones.length})
+                    <Layers className="h-4 w-4 text-primary" /> Planned
+                    Milestone Tranches ({milestones.length})
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     Supports 1 single milestone or phased multiple tranches.
@@ -1028,7 +1176,9 @@ function CampaignCreatorWizard() {
               {milestones.length === 1 && (
                 <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-3 text-xs text-muted-foreground flex items-center justify-between">
                   <span>
-                    ℹ️ <strong>Single Milestone Campaign:</strong> 100% of escrow funds will be disbursed in one release upon completion and DAO approval.
+                    ℹ️ <strong>Single Milestone Campaign:</strong> 100% of
+                    escrow funds will be disbursed in one release upon
+                    completion and DAO approval.
                   </span>
                   <Button
                     type="button"
@@ -1092,7 +1242,9 @@ function CampaignCreatorWizard() {
                     </div>
 
                     <div className="mt-2 space-y-1">
-                      <Label className="text-xs">Deliverable Description &amp; Verifiable Criteria</Label>
+                      <Label className="text-xs">
+                        Deliverable Description &amp; Verifiable Criteria
+                      </Label>
                       <Input
                         value={ms.description}
                         onChange={(e) =>
@@ -1127,7 +1279,8 @@ function CampaignCreatorWizard() {
           <CardHeader>
             <CardTitle>4. Target Funding &amp; Designated Verifier</CardTitle>
             <CardDescription>
-              Configure the fundraising goal and assign the designated verifier address required to co-sign milestone deliverable proofs.
+              Configure the fundraising goal and assign the designated verifier
+              address required to co-sign milestone deliverable proofs.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -1142,10 +1295,13 @@ function CampaignCreatorWizard() {
                   onChange={(e) => setTargetFundingUsdc(e.target.value)}
                   placeholder="25000"
                   inputMode="numeric"
-                  className={errors.targetFundingUsdc ? "border-destructive" : ""}
+                  className={
+                    errors.targetFundingUsdc ? "border-destructive" : ""
+                  }
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Donations flow directly into the non-custodial campaign escrow ATA.
+                  Donations flow directly into the non-custodial campaign escrow
+                  ATA.
                 </p>
                 {errors.targetFundingUsdc && (
                   <p className="text-xs text-destructive">
@@ -1166,8 +1322,12 @@ function CampaignCreatorWizard() {
                 <div className="flex items-center gap-2">
                   <Input
                     id="trustScore"
-                    value={aiAuditReport ? aiAuditReport.trustScore : trustScore}
-                    onChange={(e) => setTrustScore(Number(e.target.value) || 75)}
+                    value={
+                      aiAuditReport ? aiAuditReport.trustScore : trustScore
+                    }
+                    onChange={(e) =>
+                      setTrustScore(Number(e.target.value) || 75)
+                    }
                     inputMode="numeric"
                     min="0"
                     max="100"
@@ -1175,7 +1335,10 @@ function CampaignCreatorWizard() {
                     className="font-mono"
                   />
                   {aiAuditReport && (
-                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 shrink-0">
+                    <Badge
+                      variant="outline"
+                      className="bg-primary/10 text-primary border-primary/30 shrink-0"
+                    >
                       AI Locked
                     </Badge>
                   )}
@@ -1212,14 +1375,22 @@ function CampaignCreatorWizard() {
                 value={verifier}
                 onChange={(e) => setVerifier(e.target.value)}
                 placeholder="e.g. 7YkP9... (Base58 Solana address)"
-                className={errors.verifier ? "border-destructive font-mono text-xs" : "font-mono text-xs"}
+                className={
+                  errors.verifier
+                    ? "border-destructive font-mono text-xs"
+                    : "font-mono text-xs"
+                }
               />
               <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
                 <div className="flex items-center gap-1.5 font-medium text-foreground">
-                  <ShieldCheck className="h-4 w-4 text-primary" /> Why is a Designated Verifier required?
+                  <ShieldCheck className="h-4 w-4 text-primary" /> Why is a
+                  Designated Verifier required?
                 </div>
                 <p>
-                  To prevent unauthorized or fraudulent milestone claims, the Arthasetu program requires the designated verifier to cryptographically co-sign each milestone deliverable proof CID before DAO governance can vote to release funds.
+                  To prevent unauthorized or fraudulent milestone claims, the
+                  Arthasetu program requires the designated verifier to
+                  cryptographically co-sign each milestone deliverable proof CID
+                  before DAO governance can vote to release funds.
                 </p>
               </div>
               {errors.verifier && (
@@ -1244,7 +1415,9 @@ function CampaignCreatorWizard() {
           <CardHeader>
             <CardTitle>5. Review &amp; Launch Campaign</CardTitle>
             <CardDescription>
-              Review your campaign configuration and AI audit summary. Submitting will upload the metadata to IPFS and initialize your on-chain campaign escrow PDA on Solana.
+              Review your campaign configuration and AI audit summary.
+              Submitting will upload the metadata to IPFS and initialize your
+              on-chain campaign escrow PDA on Solana.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1294,15 +1467,19 @@ function CampaignCreatorWizard() {
                     </p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">AI Trust Score:</span>
+                    <span className="text-muted-foreground">
+                      AI Trust Score:
+                    </span>
                     <p className="font-semibold text-primary font-mono">
-                      {aiAuditReport ? aiAuditReport.trustScore : trustScore} / 100
+                      {aiAuditReport ? aiAuditReport.trustScore : trustScore} /
+                      100
                     </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Milestones:</span>
                     <p className="font-semibold text-foreground font-mono">
-                      {milestones.length} Tranche{milestones.length > 1 ? "s" : ""}
+                      {milestones.length} Tranche
+                      {milestones.length > 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
@@ -1312,26 +1489,32 @@ function CampaignCreatorWizard() {
             {/* Audit & Documents Summary */}
             <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-2 text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <FileCheck2 className="h-4 w-4 text-primary" /> Verified Supporting Documents ({documents.length})
+                <FileCheck2 className="h-4 w-4 text-primary" /> Verified
+                Supporting Documents ({documents.length})
               </span>
               {documents.length > 0 ? (
                 <div className="space-y-1 font-mono text-[11px] text-muted-foreground">
                   {documents.map((d, i) => (
                     <div key={i} className="flex justify-between">
-                      <span className="truncate max-w-[240px] text-foreground">{d.name}</span>
+                      <span className="truncate max-w-[240px] text-foreground">
+                        {d.name}
+                      </span>
                       <span>SHA-256: {d.sha256.slice(0, 12)}...</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground italic">No external document files attached.</p>
+                <p className="text-muted-foreground italic">
+                  No external document files attached.
+                </p>
               )}
             </div>
 
             {/* Verifier Summary */}
             <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-1 text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-primary" /> Designated Verifier
+                <ShieldCheck className="h-4 w-4 text-primary" /> Designated
+                Verifier
               </span>
               <p className="font-mono text-muted-foreground break-all">
                 {verifier}
@@ -1348,7 +1531,9 @@ function CampaignCreatorWizard() {
               className="gap-2 bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90"
             >
               <Rocket className="h-4 w-4" />
-              {isSending ? "Broadcasting to Solana..." : "Sign & Launch Campaign"}
+              {isSending
+                ? "Broadcasting to Solana..."
+                : "Sign & Launch Campaign"}
             </Button>
           </CardFooter>
         </Card>
