@@ -13,6 +13,8 @@ export interface DocumentAttachment {
   size: number;
   sha256: string;
   textSnippet?: string;
+  ipfsCid?: string;
+  ipfsUrl?: string;
   category: "whitepaper" | "budget" | "pitch_deck" | "identity" | "technical_spec" | "other";
 }
 

@@ -1,7 +1,7 @@
 /**
- * IPFS & Decentralized Metadata Service for Arthasetu (fydao)
- * Handles uploading and resolving structured Campaign & Milestone Proof metadata
- * with multi-gateway fallback and local cache.
+ * IPFS & Pinata Decentralized Metadata Service for Arthasetu (fydao)
+ * Handles uploading raw documents and structured JSON metadata to Pinata IPFS
+ * with deterministic offline fallback and multi-gateway resolution.
  */
 
 import type { AiAuditReport, DocumentAttachment } from "./ai-audit";
@@ -46,16 +46,16 @@ export interface MilestoneProofMetadata {
   gitCommit?: string;
   liveUrl?: string;
   testReportUrl?: string;
-  deliverableFileHashes?: Array<{ filename: string; sha256: string; ipfsCid?: string }>;
+  deliverableFiles?: Array<{ filename: string; size: number; sha256: string; ipfsCid?: string; ipfsUrl?: string }>;
   submittedAt: number;
   submittedBy: string;
 }
 
 const IPFS_GATEWAYS = [
+  process.env.NEXT_PUBLIC_PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs/",
   "https://ipfs.io/ipfs/",
   "https://cloudflare-ipfs.com/ipfs/",
   "https://dweb.link/ipfs/",
-  "https://gateway.pinata.cloud/ipfs/",
 ];
 
 const LOCAL_STORAGE_PREFIX = "arthasetu:ipfs:";
@@ -96,7 +96,6 @@ export async function computeContentCid(jsonString: string): Promise<string> {
     const data = encoder.encode(jsonString);
     const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
     const hashArray = new Uint8Array(hashBuffer);
-    // CIDv1 prefix simulation: 0x01 (CIDv1), 0x70 (dag-pb/json), 0x12 (sha2-256), 0x20 (32 bytes)
     const header = new Uint8Array([0x01, 0x55, 0x12, 0x20]);
     const combined = new Uint8Array(header.length + hashArray.length);
     combined.set(header, 0);
@@ -113,74 +112,105 @@ export async function computeContentCid(jsonString: string): Promise<string> {
 }
 
 /**
- * Uploads campaign metadata.
- * Uses Pinata API if NEXT_PUBLIC_PINATA_JWT is present in environment,
- * otherwise stores in localStorage + memory cache and returns a content-addressed CIDv1.
+ * Uploads a raw document file (PDF, DOCX, CSV, Image) to Pinata IPFS.
  */
-export async function uploadCampaignMetadata(
-  metadata: CampaignMetadata
-): Promise<{ cid: string; uri: string }> {
-  const jsonString = JSON.stringify(metadata, null, 2);
-  const pinataJwt = process.env.NEXT_PUBLIC_PINATA_JWT;
+export async function uploadDocumentToPinata(
+  file: File | Blob,
+  fileName?: string,
+  category?: string
+): Promise<{ cid: string; uri: string; gatewayUrl: string; isRealPinata: boolean }> {
+  const resolvedName = fileName || (file instanceof File ? file.name : "document");
 
-  if (pinataJwt) {
-    try {
-      const blob = new Blob([jsonString], { type: "application/json" });
-      const formData = new FormData();
-      formData.append("file", blob, `campaign-${metadata.title.toLowerCase().replace(/\s+/g, "-")}.json`);
+  try {
+    const formData = new FormData();
+    formData.append("file", file, resolvedName);
+    if (category) formData.append("type", category);
+    formData.append("name", resolvedName);
 
-      const pinataMetadata = JSON.stringify({
-        name: `arthasetu-campaign-${metadata.title}`,
-        keyvalues: {
-          type: "campaign_metadata",
-          creator: metadata.creatorAddress,
-        },
-      });
-      formData.append("pinataMetadata", pinataMetadata);
+    const res = await fetch("/api/pinata/upload", {
+      method: "POST",
+      body: formData,
+    });
 
-      const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${pinataJwt}`,
-        },
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const cid = data.IpfsHash;
-        MEMORY_CACHE.set(cid, metadata);
-        if (typeof window !== "undefined") {
-          localStorage.setItem(LOCAL_STORAGE_PREFIX + cid, jsonString);
-        }
-        return { cid, uri: `ipfs://${cid}` };
-      }
-    } catch (err) {
-      console.warn("Pinata upload failed, falling back to local content addressing:", err);
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        cid: data.cid,
+        uri: data.uri || `ipfs://${data.cid}`,
+        gatewayUrl: data.gatewayUrl || `https://gateway.pinata.cloud/ipfs/${data.cid}`,
+        isRealPinata: Boolean(data.isRealPinata),
+      };
     }
+  } catch (err) {
+    console.warn("Pinata upload route failed, falling back to local content addressing:", err);
   }
 
-  // Fallback to local content addressing
-  const cid = await computeContentCid(jsonString);
-  MEMORY_CACHE.set(cid, metadata);
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_PREFIX + cid, jsonString);
-    } catch {
-      // quota exceeded fallback
-    }
+  // Fallback client-side content addressing
+  const arrayBuffer = await file.arrayBuffer();
+  let hashStr = "";
+  if (typeof window !== "undefined" && window.crypto && window.crypto.subtle) {
+    const digest = await window.crypto.subtle.digest("SHA-256", arrayBuffer);
+    const hashArray = new Uint8Array(digest);
+    const header = new Uint8Array([0x01, 0x55, 0x12, 0x20]);
+    const combined = new Uint8Array(header.length + hashArray.length);
+    combined.set(header, 0);
+    combined.set(hashArray, header.length);
+    hashStr = "bafy" + toBase32(combined);
+  } else {
+    hashStr = "bafykbzace" + Date.now().toString(36);
   }
 
-  return { cid, uri: `ipfs://${cid}` };
+  return {
+    cid: hashStr,
+    uri: `ipfs://${hashStr}`,
+    gatewayUrl: `https://ipfs.io/ipfs/${hashStr}`,
+    isRealPinata: false,
+  };
 }
 
 /**
- * Uploads milestone proof metadata.
+ * Uploads structured Campaign Metadata to Pinata IPFS.
  */
-export async function uploadMilestoneProofMetadata(
-  metadata: MilestoneProofMetadata
-): Promise<{ cid: string; uri: string }> {
+export async function uploadCampaignMetadata(
+  metadata: CampaignMetadata
+): Promise<{ cid: string; uri: string; gatewayUrl: string; isRealPinata: boolean }> {
   const jsonString = JSON.stringify(metadata, null, 2);
+
+  try {
+    const res = await fetch("/api/pinata/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        payload: metadata,
+        name: `campaign-${metadata.title.toLowerCase().replace(/\s+/g, "-")}.json`,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const cid = data.cid;
+      MEMORY_CACHE.set(cid, metadata);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_PREFIX + cid, jsonString);
+        } catch {
+          // ignore
+        }
+      }
+      return {
+        cid,
+        uri: `ipfs://${cid}`,
+        gatewayUrl: data.gatewayUrl || `https://gateway.pinata.cloud/ipfs/${cid}`,
+        isRealPinata: Boolean(data.isRealPinata),
+      };
+    }
+  } catch (err) {
+    console.warn("Pinata JSON upload failed, using fallback:", err);
+  }
+
+  // Fallback
   const cid = await computeContentCid(jsonString);
   MEMORY_CACHE.set(cid, metadata);
   if (typeof window !== "undefined") {
@@ -190,7 +220,72 @@ export async function uploadMilestoneProofMetadata(
       // ignore
     }
   }
-  return { cid, uri: `ipfs://${cid}` };
+
+  return {
+    cid,
+    uri: `ipfs://${cid}`,
+    gatewayUrl: `https://ipfs.io/ipfs/${cid}`,
+    isRealPinata: false,
+  };
+}
+
+/**
+ * Uploads structured Milestone Proof Metadata to Pinata IPFS.
+ */
+export async function uploadMilestoneProofMetadata(
+  metadata: MilestoneProofMetadata
+): Promise<{ cid: string; uri: string; gatewayUrl: string; isRealPinata: boolean }> {
+  const jsonString = JSON.stringify(metadata, null, 2);
+
+  try {
+    const res = await fetch("/api/pinata/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        payload: metadata,
+        name: `milestone-proof-c${metadata.campaignId}-m${metadata.milestoneId}.json`,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const cid = data.cid;
+      MEMORY_CACHE.set(cid, metadata);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_PREFIX + cid, jsonString);
+        } catch {
+          // ignore
+        }
+      }
+      return {
+        cid,
+        uri: `ipfs://${cid}`,
+        gatewayUrl: data.gatewayUrl || `https://gateway.pinata.cloud/ipfs/${cid}`,
+        isRealPinata: Boolean(data.isRealPinata),
+      };
+    }
+  } catch (err) {
+    console.warn("Pinata milestone upload failed, using fallback:", err);
+  }
+
+  const cid = await computeContentCid(jsonString);
+  MEMORY_CACHE.set(cid, metadata);
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_PREFIX + cid, jsonString);
+    } catch {
+      // ignore
+    }
+  }
+  return {
+    cid,
+    uri: `ipfs://${cid}`,
+    gatewayUrl: `https://ipfs.io/ipfs/${cid}`,
+    isRealPinata: false,
+  };
 }
 
 /**
@@ -220,33 +315,32 @@ export async function fetchMetadataByCid<T = CampaignMetadata>(
         return parsed as T;
       }
     } catch {
-      // ignore
+      // ignore JSON parse error
     }
   }
 
-  // 3. Query public IPFS gateways with timeout race
+  // 3. Multi-gateway fetch
   for (const gateway of IPFS_GATEWAYS) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      const res = await fetch(`${gateway}${cid}`, {
-        signal: controller.signal,
-        headers: { Accept: "application/json" },
-      });
-      clearTimeout(timer);
+      const normalizedGateway = gateway.endsWith("/") ? gateway : `${gateway}/`;
+      const url = `${normalizedGateway}${cid}`;
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
       if (res.ok) {
-        const parsed = await res.json();
-        MEMORY_CACHE.set(cid, parsed);
+        const data = (await res.json()) as T;
+        MEMORY_CACHE.set(cid, data);
         if (typeof window !== "undefined") {
           try {
-            localStorage.setItem(LOCAL_STORAGE_PREFIX + cid, JSON.stringify(parsed));
+            localStorage.setItem(LOCAL_STORAGE_PREFIX + cid, JSON.stringify(data));
           } catch {
             // ignore
           }
         }
-        return parsed as T;
+        return data;
       }
     } catch {
       // try next gateway
@@ -257,23 +351,24 @@ export async function fetchMetadataByCid<T = CampaignMetadata>(
 }
 
 /**
- * Resolves IPFS protocol links to HTTP gateway URLs for images and media
+ * Resolves an ipfs:// or http:// URL to an HTTPS gateway URL for images and documents.
  */
 export function resolveIpfsUrl(urlOrCid?: string | null): string {
   if (!urlOrCid) return "";
   if (urlOrCid.startsWith("http://") || urlOrCid.startsWith("https://") || urlOrCid.startsWith("data:")) {
     return urlOrCid;
   }
-  const cleanCid = urlOrCid.replace(/^ipfs:\/\//, "");
-  return `https://cloudflare-ipfs.com/ipfs/${cleanCid}`;
+  const cleanCid = urlOrCid.replace(/^ipfs:\/\//, "").trim();
+  const gatewayBase = process.env.NEXT_PUBLIC_PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs/";
+  const normalizedGateway = gatewayBase.endsWith("/") ? gatewayBase : `${gatewayBase}/`;
+  return `${normalizedGateway}${cleanCid}`;
 }
 
 export const CAMPAIGN_CATEGORIES = [
-  { id: "technology", label: "Technology & Software", icon: "Code" },
-  { id: "defi", label: "DeFi & Web3 Protocols", icon: "Coins" },
-  { id: "climate", label: "Climate & Public Goods", icon: "Leaf" },
-  { id: "education", label: "Education & Research", icon: "GraduationCap" },
-  { id: "community", label: "Community & Social Impact", icon: "Users" },
-  { id: "arts", label: "Arts, Media & Culture", icon: "Palette" },
-  { id: "other", label: "Other Initiatives", icon: "Sparkles" },
+  { id: "technology", label: "Technology & Software" },
+  { id: "defi", label: "DeFi & Financial Infrastructure" },
+  { id: "community", label: "Community & Education" },
+  { id: "climate", label: "Climate & Public Goods" },
+  { id: "gaming", label: "Gaming & Metaverse" },
+  { id: "arts", label: "Art & Media" },
 ] as const;

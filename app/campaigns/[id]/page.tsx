@@ -570,11 +570,23 @@ export default function CampaignDetailPage({
                       >
                         <div className="flex items-center gap-2 truncate">
                           <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="truncate font-medium">{doc.name}</span>
+                          <span className="truncate font-medium text-foreground">{doc.name}</span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
-                          SHA-256: {doc.sha256.slice(0, 10)}...{doc.sha256.slice(-6)}
-                        </span>
+                        <div className="flex items-center gap-3 shrink-0 text-[10px]">
+                          <span className="text-muted-foreground">
+                            SHA-256: {doc.sha256.slice(0, 10)}...{doc.sha256.slice(-6)}
+                          </span>
+                          {doc.ipfsCid && (
+                            <a
+                              href={doc.ipfsUrl || resolveIpfsUrl(doc.ipfsCid)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary underline flex items-center gap-0.5 font-semibold"
+                            >
+                              Pinata <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

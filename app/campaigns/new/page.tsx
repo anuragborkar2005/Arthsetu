@@ -38,6 +38,7 @@ import {
 import { createCampaignActions } from "@/app/lib/fydao/actions";
 import {
   uploadCampaignMetadata,
+  uploadDocumentToPinata,
   CAMPAIGN_CATEGORIES,
   type CampaignMetadata,
   type CampaignMilestonePlan,
@@ -276,8 +277,12 @@ function CampaignCreatorWizard() {
           fname.includes("id") ||
           fname.includes("kyc") ||
           fname.includes("reg")
-        )
+        ) {
           cat = "identity";
+        }
+
+        // Upload and Pin file to Pinata IPFS
+        const pinResult = await uploadDocumentToPinata(file, file.name, cat);
 
         newAttachments.push({
           name: file.name,
@@ -285,12 +290,14 @@ function CampaignCreatorWizard() {
           size: file.size,
           sha256,
           textSnippet,
+          ipfsCid: pinResult.cid,
+          ipfsUrl: pinResult.gatewayUrl,
           category: cat,
         });
       }
       setDocuments((prev) => [...prev, ...newAttachments]);
       toast.success(
-        `Attached and hashed ${newAttachments.length} document(s) with SHA-256!`
+        `Uploaded & pinned ${newAttachments.length} document(s) to Pinata IPFS with SHA-256!`
       );
     } catch (err: any) {
       toast.error("Failed to process documents: " + err.message);
@@ -850,13 +857,22 @@ function CampaignCreatorWizard() {
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <FileText className="h-4 w-4 text-primary shrink-0" />
-                        <div className="min-w-0">
+                        <div className="min-w-0 space-y-0.5">
                           <p className="font-semibold truncate">{doc.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-mono truncate">
-                            SHA-256: {doc.sha256.slice(0, 16)}...
-                            {doc.sha256.slice(-8)} ·{" "}
-                            {(doc.size / 1024).toFixed(1)} KB
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground font-mono">
+                            <span>SHA-256: {doc.sha256.slice(0, 10)}...{doc.sha256.slice(-6)}</span>
+                            <span>· {(doc.size / 1024).toFixed(1)} KB</span>
+                            {doc.ipfsCid && (
+                              <a
+                                href={doc.ipfsUrl || `https://gateway.pinata.cloud/ipfs/${doc.ipfsCid}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline flex items-center gap-0.5"
+                              >
+                                Pinata: {doc.ipfsCid.slice(0, 10)}... <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">

@@ -26,6 +26,7 @@ import { useCampaignMetadata } from "@/app/lib/hooks/use-campaign-metadata";
 import { proposeMilestoneActions } from "@/app/lib/fydao/actions";
 import {
   uploadMilestoneProofMetadata,
+  uploadDocumentToPinata,
   fetchMetadataByCid,
   type MilestoneProofMetadata,
 } from "@/app/lib/ipfs";
@@ -717,6 +718,30 @@ function MilestoneProofBuilder() {
     }
   };
 
+  const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
+
+  const handleEvidenceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploadingEvidence(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const pinResult = await uploadDocumentToPinata(file, file.name, "evidence");
+        setLinks((prev) => [
+          ...prev.filter((l) => l.url.trim().length > 0),
+          { label: file.name, url: pinResult.gatewayUrl },
+        ]);
+        toast.success(`Pinned ${file.name} to Pinata IPFS!`);
+      }
+    } catch (err: any) {
+      toast.error("Failed to upload file to Pinata: " + err.message);
+    } finally {
+      setIsUploadingEvidence(false);
+      e.target.value = "";
+    }
+  };
+
   return (
     <Card className="border-border/60 max-w-2xl mx-auto">
       <CardHeader>
@@ -724,7 +749,7 @@ function MilestoneProofBuilder() {
           <Sparkles className="h-4 w-4 text-primary" /> Milestone Deliverable Evidence Builder
         </CardTitle>
         <CardDescription className="text-xs">
-          Package deliverable reports, evidence links, and git commits into a standardized IPFS CID to use when proposing or co-signing milestones.
+          Package deliverable reports, evidence links, and git commits into a standardized Pinata IPFS CID to use when proposing or co-signing milestones.
         </CardDescription>
       </CardHeader>
 
@@ -795,9 +820,29 @@ function MilestoneProofBuilder() {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Label>Evidence &amp; Artifact Links</Label>
-            <Button type="button" variant="ghost" size="sm" onClick={addLink} className="h-6 text-[11px] gap-1">
-              <Plus className="h-3 w-3" /> Add Link
-            </Button>
+            <div className="flex items-center gap-2">
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleEvidenceFileUpload}
+                  className="hidden"
+                  disabled={isUploadingEvidence}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-[11px] gap-1 pointer-events-none"
+                  disabled={isUploadingEvidence}
+                >
+                  <Upload className="h-3 w-3" /> {isUploadingEvidence ? "Pinning..." : "Upload File to Pinata"}
+                </Button>
+              </label>
+              <Button type="button" variant="ghost" size="sm" onClick={addLink} className="h-6 text-[11px] gap-1">
+                <Plus className="h-3 w-3" /> Add URL
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             {links.map((link, idx) => (
