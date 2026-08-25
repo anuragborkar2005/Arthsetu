@@ -1,0 +1,25 @@
+{
+  "version": "1.1.0",
+  "campaignId": "0",
+  "milestoneId": "0",
+  "title": "Phase 1: 15 Rescue Rafts Deployed & 10,000 Rations Distributed",
+  "description": "# Deliverable Verification Report: Milestone #1\n\n## 🛥️ Water Rescue Deployment\n- **15 motorized shallow-draft rescue rafts** were procured and deployed across **Majuli Island (8 boats)** and **Cachar Barak River basin (7 boats)**.\n- **Evacuation Results**: 2,840 stranded residents safely evacuated to dry highland relief camps.\n\n## 🍞 Emergency Food Distribution\n- **10,000 family survival ration packets** distributed across 14 relief camps.\n- Each packet contained: 5kg flattened rice (chira), 2kg jaggery, 20 packets ORS, 50 halogen water purification tablets, high-calorie biscuits, and baby nutrition.\n\n## 🧾 Supporting Documents & Evidence\n- **Vendor Invoice**: Raft Manufacturer Receipt #BR-2026-891 ($12,000 USDC)\n- **Food Supplier Challan**: Kamrup Wholesale Rations Challan #KW-104 ($8,000 USDC)\n- **Government DDMA Endorsement**: Majuli Sub-Divisional Officer Acknowledgment Letter",
+  "evidenceLinks": [
+    {
+      "label": "Raft Procurement Invoices",
+      "url": "https://gateway.pinata.cloud/ipfs/bafybeievidenceinvoice15raftsassamrelief"
+    },
+    {
+      "label": "GPS Field Distribution Logs",
+      "url": "https://gateway.pinata.cloud/ipfs/bafybeievidencegpsdistributionlogsmajuli"
+    },
+    {
+      "label": "DDMA Government Delivery Acknowledgment",
+      "url": "https://gateway.pinata.cloud/ipfs/bafybeievidenceddmaendorsementletter"
+    }
+  ],
+  "gitCommit": "7f9a2c3b8a104",
+  "liveUrl": "https://assamrelief.org/field-reports/milestone-1",
+  "submittedAt": 1724688000000,
+  "submittedBy": "7f9a2C3b4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a"
+}

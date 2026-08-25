@@ -50,6 +50,7 @@ import {
   type DocumentAttachment,
   type AiAuditReport,
 } from "@/app/lib/ai-audit";
+import { ASSAM_FLOOD_RELIEF_EXAMPLE } from "@/app/lib/examples/assam-flood-relief";
 import type { Address } from "@solana/kit";
 import {
   Check,
@@ -247,6 +248,25 @@ function CampaignCreatorWizard() {
     } catch {
       // ignore
     }
+  };
+
+  const loadAssamFloodTemplate = () => {
+    setTitle(ASSAM_FLOOD_RELIEF_EXAMPLE.title);
+    setTagline(ASSAM_FLOOD_RELIEF_EXAMPLE.tagline);
+    setCategory(ASSAM_FLOOD_RELIEF_EXAMPLE.category);
+    setBannerUrl(ASSAM_FLOOD_RELIEF_EXAMPLE.bannerUrl || "");
+    setLogoUrl(ASSAM_FLOOD_RELIEF_EXAMPLE.logoUrl || "");
+    setWebsiteUrl(ASSAM_FLOOD_RELIEF_EXAMPLE.websiteUrl || "");
+    setTwitterUrl(ASSAM_FLOOD_RELIEF_EXAMPLE.twitterUrl || "");
+    setGithubUrl(ASSAM_FLOOD_RELIEF_EXAMPLE.githubUrl || "");
+    setContactEmail(ASSAM_FLOOD_RELIEF_EXAMPLE.contactEmail || "");
+    setDescription(ASSAM_FLOOD_RELIEF_EXAMPLE.description);
+    setTargetFundingUsdc(ASSAM_FLOOD_RELIEF_EXAMPLE.targetFundingUsdc);
+    setDocuments(ASSAM_FLOOD_RELIEF_EXAMPLE.documents || []);
+    setAiAuditReport(ASSAM_FLOOD_RELIEF_EXAMPLE.aiAudit || null);
+    setTrustScore(ASSAM_FLOOD_RELIEF_EXAMPLE.aiAudit?.trustScore || 94);
+    setMilestones(ASSAM_FLOOD_RELIEF_EXAMPLE.plannedMilestones || []);
+    toast.success("Loaded verified 'Assam Flood Emergency Relief' campaign template!");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -656,12 +676,22 @@ function CampaignCreatorWizard() {
       {/* Step 1: Identity & Branding */}
       {step === 1 && (
         <Card className="border-border/60">
-          <CardHeader>
-            <CardTitle>1. Project Identity &amp; Branding</CardTitle>
-            <CardDescription>
-              Introduce your initiative. Provide high-level details, category
-              classification, and project links.
-            </CardDescription>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle>1. Project Identity &amp; Branding</CardTitle>
+              <CardDescription>
+                Introduce your initiative or load a verified reference template.
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={loadAssamFloodTemplate}
+              className="gap-1.5 text-xs bg-primary/5 border-primary/30 text-primary hover:bg-primary/10 shrink-0"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Load Example: Assam Flood Relief 2026
+            </Button>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-1.5">
