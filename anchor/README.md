@@ -4,7 +4,7 @@ The `fydao` program is a Solana fundraising DAO: on-chain campaigns with a stabl
 escrow, governed by a custom Governor (governance token, voted proposals, real
 timelock, proposal-gated fund movement).
 
-Program ID (placeholder): `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`
+Program ID: `HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb`
 
 ## Program surface
 

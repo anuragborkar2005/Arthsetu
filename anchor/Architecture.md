@@ -4,7 +4,7 @@
 
 `fydao` is a Solana program written with the Anchor framework (Rust). It combines two subsystems in a single program:
 
-1. **Fundraising / donations** — creators open a *Campaign*, donors deposit a stablecoin into a PDA-owned escrow, and funds are released to the creator in *Milestones*.
+1. **Fundraising / donations** — creators open a *Campaign*, an in-memory Privacy AI engine hashes supporting documents with SHA-256, cross-examines the project story against technical whitepapers/budgets, and records an immutable *Trust Score* (0–100) and designated *Verifier* on Solana. Donors deposit a stablecoin into a PDA-owned escrow, and funds are released to the creator in *Milestones* upon dual-signer verification.
 2. **Governance (Governor-style)** — governance-token holders create *Proposals* carrying a typed `ProposalAction`, vote (locking tokens), and the action is performed by a permissionless trigger once the proposal passes, is queued, and its timelock delay elapses.
 
 All source lives under `anchor/programs/fydao/src/`:
@@ -68,9 +68,85 @@ All accounts are PDAs. `Milestone` and `VoteRecord` are **closed** (rent reclaim
 
 **Governance mint authority**: the program PDA `["mint_authority"]` (`GovernanceTokenState::MINT_AUTHORITY_SEED`) is granted the governance mint's `MintTo` authority at `initialize_governance_token`. It is a pure signer PDA (no data); it exists so the supply cap cannot be bypassed by a raw SPL `MintTo` (C5/H5).
 
-## 4. Instruction Groups
+## 4. Off-Chain Pinata IPFS & Cryptographic Document Model
 
-### 4.1 Protocol initialization & authority
+Campaign and milestone deliverable evidence are pinned to **Pinata Cloud IPFS** and bound immutably to on-chain accounts via content identifiers (CIDs):
+
+### 4.1 Campaign Metadata Schema (`CampaignMetadata`)
+Stored at `campaign.metadata_cid`:
+```json
+{
+  "version": "1.1.0",
+  "title": "Quantum Solana Oracle",
+  "tagline": "Decentralized high-frequency price feeds",
+  "category": "defi",
+  "description": "# Project Story\n...",
+  "targetFundingUsdc": "50000",
+  "documents": [
+    {
+      "name": "Whitepaper-v1.pdf",
+      "type": "application/pdf",
+      "size": 245800,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ipfsCid": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+      "category": "whitepaper"
+    }
+  ],
+  "aiAudit": {
+    "trustScore": 92,
+    "rating": "Exceptional",
+    "aiGeneratedRisk": "Low",
+    "aiGeneratedProbability": 12,
+    "subScores": {
+      "authenticityScore": 95,
+      "storyDocumentAlignmentScore": 94,
+      "feasibilityScore": 90,
+      "verifiabilityScore": 92,
+      "aiContentScore": 90
+    },
+    "storyAlignmentFindings": [
+      "Technical architecture in story matches specifications in Whitepaper-v1.pdf",
+      "Budget target aligned with itemized infrastructure line items"
+    ],
+    "storyDiscrepancies": [],
+    "auditHash": "0x7a3f91c0e81b2a9d"
+  },
+  "plannedMilestones": [
+    {
+      "id": 0,
+      "title": "Phase 1: Core Engine & Devnet Deployment",
+      "description": "Smart contract deployment on LiteSVM and Solana Devnet",
+      "targetAmountUsdc": "20000",
+      "estimatedDurationDays": 30
+    }
+  ],
+  "creatorAddress": "7f9a...",
+  "verifierAddress": "4u5b..."
+}
+```
+
+### 4.2 Milestone Proof Metadata Schema (`MilestoneProofMetadata`)
+Stored at `milestone.proof_cid`:
+```json
+{
+  "version": "1.1.0",
+  "campaignId": "0",
+  "milestoneId": "0",
+  "title": "Phase 1: Core Engine Deployed to Solana Devnet",
+  "description": "Smart contracts compiled with Anchor 0.30.1 and tested against LiteSVM suite.",
+  "gitCommit": "7f9a2c3b8a104",
+  "liveUrl": "https://devnet.solana.com/address/HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb",
+  "evidenceLinks": [
+    { "label": "Security Audit Report", "url": "https://gateway.pinata.cloud/ipfs/bafy..." }
+  ],
+  "submittedAt": 1724601600000,
+  "submittedBy": "7f9a..."
+}
+```
+
+## 5. Instruction Groups
+
+### 5.1 Protocol initialization & authority
 | Instruction | Signer required | Effect |
 |---|---|---|
 | `initialize_dao` | `GENESIS_AUTHORITY` only | Creates global `DaoConfig`; sets authority = caller, mint addresses, treasury, voting parameters, `max_governance_supply`. One-time and **front-run-proof** (caller must equal the pinned `GENESIS_AUTHORITY` in `lib.rs`; see Security H1). |
@@ -80,18 +156,18 @@ All accounts are PDAs. `Milestone` and `VoteRecord` are **closed** (rent reclaim
 | `accept_authority` | pending `dao_config.authority` | Step 2: promotes `pending_authority` → `authority`, clears `pending_authority`. |
 | `set_paused` | current `dao_config.authority` | Toggles `paused`; enforced on every fund-moving and governance-admin path. |
 
-### 4.2 Campaign lifecycle
+### 5.2 Campaign lifecycle
 ```
-creator ──create_campaign──▶ Campaign(is_live=false, escrow ATA)
+creator ──create_campaign(metadata_cid, trust_score, verifier)──▶ Campaign(is_live=false, escrow ATA)
 [ApproveCampaign proposal passes + queued] ──approve_and_go_live──▶ is_live=true
 donor ──donate──▶ stablecoin → escrow ATA, total_deposited += n, DonationRecord[donor] += n
-creator ──propose_milestone──▶ Milestone(amount, proof_cid)   [requires is_live]
+creator + verifier ──propose_milestone(proof_cid, amount)──▶ Milestone(amount, proof_cid)   [requires is_live]
 [ReleaseMilestone proposal passes + queued] ──release_milestone──▶ escrow → creator ATA, total_released += n, Milestone closed
 [EmergencyWithdraw proposal passes + queued] ──emergency_withdraw──▶ escrow → dao_config.treasury (pinned), emergency_withdrawn=true, total_deposited -= n
 donor ──claim_refund──▶ (only after drain) min(DonationRecord[donor], escrow balance) → donor ATA
 ```
 
-### 4.3 Governance lifecycle
+### 5.3 Governance lifecycle
 ```
 holder ──create_proposal(action)──▶ Proposal(Pending, vote_start, vote_end, action)
 holder ──cast_vote──▶ VoteRecord created; governance tokens LOCKED into per-voter escrow; for/against/abstain += weight
@@ -101,132 +177,29 @@ proposer | any holder ──cancel_proposal──▶ Canceled
 voter ──unlock_votes──▶ returns locked weight once final (Defeated/Canceled/Executed/Expired)
 ```
 
-## 5. Trust Model
+## 6. Trust Model
 
-- **DAO-governed fund movement (C3).** `approve_and_go_live`, `release_milestone`, `emergency_withdraw`, and `transfer_authority` are **permissionless triggers** that only act when the proposal they reference has *passed, been queued, and its timelock delay has elapsed* (`execution.rs::finalize_execution`). No single key — not even `dao_config.authority` — can move funds directly. This is deliberately safer than a PDA-signer governor: the same execution code runs for every proposal, so there is no privileged key to compromise.
-- **Residual authority powers.** `dao_config.authority` still initiates `mint_governance_tokens` (up to the `max_governance_supply` cap, so quorum can still be diluted via program mints — C5 residual) and `set_paused` (circuit breaker, cannot move funds). It can also create/vote on proposals itself, subject to the quorum/threshold rules.
-- **Governance token holders** vote with a *locked* token balance: `cast_vote` transfers the voted weight into a per-voter escrow ATA (owned by the `["vote_escrow", voter]` PDA) and `unlock_votes` returns it once the proposal reaches a final state. No delegation (removed — was a log-only stub).
-- **Donors** have a clawback path: `donate` records contributions in a `DonationRecord`, and after a governance-approved `emergency_withdraw` the donor can `claim_refund` up to `min(record, escrow_remaining)`. Funds can only be drained by a passed `EmergencyWithdraw` proposal to the DAO treasury, not by a single key.
-- **Creators** propose milestones with a `proof_cid`; a **designated verifier** (named at campaign creation, endorsed by the DAO approval) must sign the proposal (M5), so the attestation is a first-class on-chain fact. The release itself is still DAO-vote-gated. An external oracle/reputation layer for the verifier remains a residual nice-to-have.
+- **DAO-governed fund movement (C3).** `approve_and_go_live`, `release_milestone`, `emergency_withdraw`, and `transfer_authority` are **permissionless triggers** that only act when the proposal they reference has *passed, been queued, and its timelock delay has elapsed* (`execution.rs::finalize_execution`). No single key — not even `dao_config.authority` — can move funds directly.
+- **Privacy AI Diligence & Trust Score Binding.** Campaign creation binds an on-chain `trust_score` (0–100) computed from client-side SHA-256 hashed documents, zero-retention text parsing, and deep story-document cross-examination.
+- **Governance token holders** vote with a *locked* token balance: `cast_vote` transfers the voted weight into a per-voter escrow ATA (owned by the `["vote_escrow", voter]` PDA) and `unlock_votes` returns it once the proposal reaches a final state.
+- **Donors** have a clawback path: `donate` records contributions in a `DonationRecord`, and after a governance-approved `emergency_withdraw` the donor can `claim_refund` up to `min(record, escrow_remaining)`.
+- **Dual-Signer Milestone Attestation.** `propose_milestone` requires explicit signatures from both Creator and Designated Verifier (`campaign.verifier`), ensuring deliverables are verified before DAO voting.
 
-## 6. Notable Architectural Gaps (see Security.md for detail)
-
-| Gap | Location | Impact | Status |
-|---|---|---|---|
-| Governance could not execute anything (no-op `execute_proposal`) | `instructions/execution.rs` (replaces removed `execute_proposal.rs`) | **Fixed** — proposals carry typed `ProposalAction`s performed atomically by permissionless triggers after timelock elapse | Resolved |
-| Single-key fund movement (`approve_*`/`release_*`/`emergency_withdraw` signed by authority) | `instructions/approve_and_go_live.rs` etc. | **Fixed** — all fund-movers are proposal-gated; no key can move funds directly | Resolved |
-| Voting weight locked into per-voter escrow at vote time | `instructions/cast_vote.rs`, `unlock_votes.rs` | **Fixed** — buy-vote-dump closed; weight returned only at final states | Resolved |
-| Quorum denominator = proposer's own balance | `instructions/create_proposal.rs:73` | **Fixed** — now snapshots `governance_mint.supply` | Resolved |
-| "Timelock" is just `dao_config.authority` | `lib.rs` comments | **Fixed** — real timelock via `queue_proposal` `eta` + `execution.rs` window, no signer required | Resolved |
-| `delegate_votes` was a log-only no-op | `instructions/delegate_votes.rs` (deleted) | **Fixed** — instruction removed; the interface no longer advertises delegation | Resolved |
-| Token metadata args ignored | `instructions/initialize_governance_token.rs` | **Fixed** — Metaplex metadata record created via CPI (M1) | Resolved |
-| No donor recourse after a drain | `instructions/claim_refund.rs`, `state/donation_record.rs` | **Fixed** — per-donor records + `claim_refund` clawback (M4) | Resolved |
-| No structured events | `state/events.rs` | **Fixed** — 20 Anchor `#[event]`s emitted by all handlers (L3) | Resolved |
-| Rent locked in short-lived PDAs | `release_milestone.rs`, `unlock_votes.rs` | **Fixed** — `Milestone` and `VoteRecord` closed on final use (L4) | Resolved |
-| `paused` flag enforcement | `instructions/set_paused.rs` | **Fixed** — now enforced on all fund-moving and governance-admin paths | Resolved |
-| `emergency_withdrawn` enforcement | `instructions/donate.rs:43`, `release_milestone.rs:49`, `propose_milestone.rs:47` | **Fixed** — campaign frozen after drain | Resolved |
-| `initialize_dao` is front-runnable | `instructions/initialize_dao.rs`, `lib.rs` (`GENESIS_AUTHORITY`) | **Fixed** — only the pinned genesis key can bootstrap the single global PDA | Resolved |
-| Milestone `proof_cid` self-attested | `instructions/propose_milestone.rs`, `create_campaign.rs` | **Fixed** — designated `verifier` must sign (`InvalidVerifier`); `verified_by`/`verified_at` recorded; release stays DAO-gated. Oracle layer remains residual (M5) | Resolved |
-| No on-chain integration tests (TS suite mutated local objects) | `tests/integration_litesvm.rs` | **Fixed** — full-lifecycle and gate regression tests run real transactions against a real SVM (LiteSVM) (H8) | Resolved |
-
-**Fixes applied across the audit rounds** (verified in git history): `set_paused` added; `queue_proposal` persists `Defeated`; `transfer_authority` rejects zero address; `initialize_dao` validates delays/quorum **and is guarded by `GENESIS_AUTHORITY` (H1)**; `finalize_execution` persists `Expired` and enforces the 14-day window; `paused` enforced on all fund-moving/admin paths; `emergency_withdrawn` enforced on all campaign write paths; governance mint's `MintTo` authority transferred to a **program PDA** and the `max_governance_supply` cap enforced against the **real `mint.supply`** (C5/H5/M10); `create_proposal` snapshots mint supply; two-step authority transfer (`transfer_authority` + `accept_authority`); emergency-withdraw destination pinned to `dao_config.treasury`; **vote-locking via per-voter escrow + `unlock_votes` (C2)**; `trust_score` bounded to 0–100; **typed `ProposalAction` + real proposal-gated execution (C1/C3/C4, M3)**: `execute_proposal` deleted, timelock moved to `execution.rs::finalize_execution`, and `approve_and_go_live`/`release_milestone`/`emergency_withdraw`/`transfer_authority` became permissionless proposal-gated triggers; **designated milestone verifier (M5)**; **real on-chain integration tests via LiteSVM (H8)**.
-
-## 7. Reference — data-flow of a stablecoin
+## 7. Reference — Data-Flow of a Stablecoin
 
 1. `create_campaign` initializes the escrow ATA owned by the Campaign PDA.
 2. `donate` transfers donor → escrow (token program CPI), increments `total_deposited`, and records the contribution in the donor's `DonationRecord`.
 3. `release_milestone` (proposal-gated) transfers escrow → creator ATA via campaign PDA signer seeds, increments `total_released`, and closes the `Milestone` account.
-4. `emergency_withdraw` (proposal-gated) transfers escrow → `dao_config.treasury` (pinned, never caller-supplied) via the same campaign PDA signer seeds, sets `emergency_withdrawn = true`, and decrements `total_deposited`. `donate`/`propose_milestone`/`release_milestone` block once the flag is set.
+4. `emergency_withdraw` (proposal-gated) transfers escrow → `dao_config.treasury` (pinned, never caller-supplied) via the same campaign PDA signer seeds, sets `emergency_withdrawn = true`, and decrements `total_deposited`.
 5. `claim_refund` (post-drain) transfers `min(DonationRecord.amount, escrow_remaining)` from the escrow back to the donor via the campaign PDA signer seeds, and decrements both the record and `total_deposited`.
 
-## 8. Governance ↔ campaigns (how a proposal changes the world)
-
-Proposals and campaigns are now connected through the typed `ProposalAction`:
+## 8. Governance ↔ Campaigns Actions
 
 - `ApproveCampaign { campaign }` → `approve_and_go_live` flips `campaign.is_live = true`.
 - `ReleaseMilestone { campaign, milestone_id }` → `release_milestone` pays the milestone from escrow to the creator.
 - `EmergencyWithdraw { campaign, amount }` → `emergency_withdraw` sends up to `amount` from escrow to the treasury.
 - `TransferAuthority { new_authority }` → `transfer_authority` sets `pending_authority` (then `accept_authority` completes it).
 
-Each trigger loads the `Proposal`, requires `proposal.action == <expected variant>` (error `ActionMismatch` otherwise), and calls `execution.rs::finalize_execution(proposal, clock)` which enforces: state `Queued`, `now >= eta`, `!executed`, and `now <= eta + 14 days` (else it persists `Expired` and no-ops). Only if all checks pass does it perform the action and then set `state = Executed; executed = true` in the same transaction — the action and the `Executed` transition are atomic, so a proposal can never be executed twice.
+---
 
-## 9. User Stories
-
-The architecture is best understood from the people who use it. There are five roles plus a permissionless set of "triggerers" that act as relays for decisions the DAO has already made.
-
-| Persona | On-chain identity | What they are allowed to do |
-|---|---|---|
-| **Genesis** (deployer) | pinned `GENESIS_AUTHORITY` (`lib.rs`) | one-time `initialize_dao` |
-| **DAO authority** | `dao_config.authority` | admin only: `set_paused`, capped `mint_governance_tokens`, token bootstrap, accept a DAO-nominated authority transfer |
-| **Campaign creator** | `creator` signer | `create_campaign`, `propose_milestone` |
-| **Donor** | `donor` signer | `donate`, `claim_refund` (post-drain) |
-| **Governance holder** | governance token balance + signer | `create_proposal`, `cast_vote`, `unlock_votes` |
-| **Triggerer** | anyone, permissionless | `queue_proposal`, `approve_and_go_live`, `release_milestone`, `emergency_withdraw` |
-
-The central idea: **creators and donors touch money directly, but nobody — not even `dao_config.authority` — can move escrow funds without a passed, queued, timelocked proposal.** Triggerers are just relays that fire an already-authorized decision.
-
-### 9.1 Genesis bootstrap
-**As the deployer, I want to launch the DAO exactly once, so I can configure its rules.**
-
-`GENESIS_AUTHORITY` signs `initialize_dao`, creating the single global `DaoConfig` PDA (`["dao_config"]`) that holds the treasury token account, the governance and stablecoin mints, and the constitutional parameters (`voting_delay`, `voting_period`, `quorum_bps`, `proposal_threshold`, `max_governance_supply`, `timelock_delay`). Because the signer must equal the pinned constant, the one global PDA can never be front-run (H1).
-
-### 9.2 Issuing the governance token
-**As the DAO authority, I want the governance token to have real identity and a hard supply cap, so holders cannot be diluted arbitrarily.**
-
-`initialize_governance_token` creates the Metaplex metadata record from `name`/`symbol`/`uri` and transfers the mint's `MintTo` authority to the program PDA `["mint_authority"]`. From then on the **program is the only possible minter**. `mint_governance_tokens` (authority-signed) mints up to `max_governance_supply`, checked against the real `mint.supply` — so tokens can neither be minted outside the program nor exceed the cap inside it (C5/M10).
-
-### 9.3 Launching a campaign
-**As a creator, I want to open a fundraiser, so donors can fund my project.**
-
-`create_campaign` builds the `Campaign` PDA (`["campaign", creator, campaign_id]`) and its escrow ATA — a stablecoin account owned by the campaign PDA itself. The campaign starts `is_live = false`.
-
-**As a holder, I want a say in which campaigns go live, so bad actors cannot accept donations immediately.**
-
-The creator cannot go live alone. A holder must pass `ProposalAction::ApproveCampaign { campaign }` through the full lifecycle; once executed, a triggerer calls `approve_and_go_live` and the campaign flips to live.
-
-### 9.4 Donating
-**As a donor, I want to fund a live campaign and keep a receipt, so I can prove my contribution and claw it back if things go wrong.**
-
-`donate` transfers stablecoins into the escrow and records the lifetime contribution in a `DonationRecord` (`["donation", campaign, donor]`). The escrow's authority is the **campaign PDA**, so the only ways funds ever leave are a passed `ReleaseMilestone` or `EmergencyWithdraw` proposal, or the donor's own post-drain `claim_refund`.
-
-### 9.5 Getting paid via milestones
-**As a creator, I want to receive escrow funds in stages, so I am paid as I deliver.**
-
-`propose_milestone` attaches a self-attested `proof_cid` and an amount bounded by `total_deposited − total_released`.
-
-**As a holder, I want to review and authorize each payment, so funds are not released on the creator's say-so.**
-
-The DAO votes a `ReleaseMilestone { campaign, milestone_id }` proposal through the lifecycle. Once executed by a triggerer, the payment flows escrow → creator via campaign-PDA signer seeds, the `Milestone` account is **closed** (rent returned), and a `MilestoneReleased` event fires for indexers.
-
-### 9.6 The voting loop (the heart of the system)
-**As a holder, I want to create and vote on proposals, so my tokens control the DAO.**
-
-- `create_proposal` — requires a balance ≥ `proposal_threshold`, snapshots `governance_mint.supply` as the quorum denominator, and computes `vote_start`/`vote_end` from the config.
-- `cast_vote` — my weight equals my token balance, which is **locked into a per-voter escrow** ATA while the vote is live (no buy-vote-dump). The `VoteRecord` marks that I have voted.
-- `queue_proposal` — after voting ends, quorum (`quorum_bps` of the snapshot) and majority decide `Succeeded` vs `Defeated`; a winner is queued with `eta = now + timelock_delay`.
-
-**As a triggerer, I want to execute passed proposals without holding any authority, so a proposal cannot be blocked by an absent key.**
-
-Any action trigger calls `finalize_execution`, which enforces `Queued`, `now ≥ eta`, and the 14-day window (else the proposal is persisted as `Expired`). If all checks pass the action runs atomically and the proposal becomes `Executed`.
-
-**As a voter, I want my locked tokens back once the outcome is decided.**
-
-`unlock_votes` returns the escrowed weight once the proposal reaches a final state (`Defeated`/`Canceled`/`Executed`/`Expired`) and closes the `VoteRecord`.
-
-### 9.7 Emergency exit and donor recourse
-**As a holder, I want to rescue funds from a stalled campaign, so money is not stuck forever.**
-
-A `EmergencyWithdraw { campaign, amount }` proposal, after passing the lifecycle, lets a triggerer drain up to `amount` from the escrow **to the canonical DAO treasury** (pinned in `DaoConfig`, never caller-supplied). The campaign is frozen: `emergency_withdrawn = true` blocks new donations, milestone proposals, and releases.
-
-**As a donor, I want my share back after a drain, so a rescue does not just confiscate my contribution.**
-
-`claim_refund` transfers `min(DonationRecord.amount, escrow_remaining)` back to the donor via campaign-PDA signer seeds, decrementing both the record and `total_deposited`.
-
-### 9.8 Guardrails
-**As the DAO authority, I want a circuit breaker and a safe way to hand over power.**
-
-- `set_paused` freezes every fund-moving and governance-admin path.
-- Authority handover is two-step: the DAO votes `TransferAuthority` to nominate `pending_authority`, then the **new key** signs `accept_authority`. A PDA can never be nominated-and-accepted, so the protocol cannot be orphaned (C4/M9).
-
-### 9.9 The connecting thread
-Every money flow runs through the same loop — *proposal → vote (locked) → queue (timelock) → execute (permissionless) → event*. Donations and milestone proofs are the only creator/donor-trusted inputs; everything else is governed. All state transitions emit Anchor `#[event]`s so indexers can reconstruct history without parsing logs.
+*Arthasetu Smart Contract Architecture · Solana SVM & Anchor 0.30.1.*

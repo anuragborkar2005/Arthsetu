@@ -1,37 +1,81 @@
 # arthasetu (अर्थसेतु)
 
-A decentralized, privacy-verified milestone crowdfunding DAO on **Solana**. Creators launch campaigns backed by non-custodial stablecoin escrows; an in-memory, privacy-preserving AI service evaluates supporting documents and binds an on-chain **Trust Score**; an on-chain DAO approves campaigns, releases milestone tranches upon dual-signer verification, and enforces donor clawback protections.
+A decentralized, privacy-verified milestone crowdfunding DAO on **Solana**. Creators launch campaigns backed by non-custodial stablecoin escrows; an in-memory, privacy-preserving AI engine evaluates supporting documents, cross-examines the project story against technical whitepapers and budget spreadsheets, and binds an on-chain **Trust Score**; an on-chain DAO approves campaigns, releases milestone tranches upon dual-signer deliverable verification, and enforces donor clawback protections.
 
-Built with [Anchor](https://www.anchor-lang.com/) (Rust), Next.js 16 (React 19), `@solana/kit`, and a [Codama](https://github.com/codama-idl/codama)-generated TypeScript client.
+Built with [Anchor](https://www.anchor-lang.com/) (Rust), Next.js 16 (React 19), `@solana/kit`, Pinata IPFS, Google Gemini, and a [Codama](https://github.com/codama-idl/codama)-generated TypeScript client.
 
 ---
 
 ## 🏛️ How It Works
 
-1. **Campaign Launch & Privacy AI Verification (`/campaigns/new`)**:
-   - Creators submit their vision, funding target in USDC, and upload supporting documents (pitch deck, whitepaper, budget sheets).
-   - An in-memory, zero-retention **Privacy AI Engine** extracts text, hashes documents with client-side SHA-256, checks for authenticity & AI-generated content probability, and algorithmically computes an on-chain **Trust Score (0–100)**.
-   - The creator defines 1 to N milestone roadmap tranches (with 1-click AI auto-generation from uploaded budget sheets) and assigns a **Designated Verifier** (M5).
-   - Campaign is registered on Solana with `is_live = false` and metadata pinned to IPFS.
+```
++─────────────────────────────────────────────────────────────────────────────────────────+
+| 1. CREATOR STUDIO & AI VERIFICATION (/campaigns/new)                                    |
+|    • Upload Whitepapers, Pitch Decks, & Itemized Budget Sheets (Pinned to Pinata IPFS)  |
+|    • Client-side WebCrypto SHA-256 Hashing + PII Sanitization (Zero Data Retention)    |
+|    • Deep Story vs. Document Cross-Examination (Alignment Scoring & Discrepancy Check)  |
+|    • AI-Crafted Milestone Roadmap Tranches + Designated Verifier Assignment             |
+|    • On-Chain Registration on Solana (create_campaign with Trust Score 0-100)           |
++──────────────────────────────────────────┬──────────────────────────────────────────────+
+                                           │
+                                           ▼
++─────────────────────────────────────────────────────────────────────────────────────────+
+| 2. DAO REVIEW & GO-LIVE GOVERNANCE (/governance)                                        |
+|    • Assigned Verifiers & DAO Members Inspect Document Hashes & AI Trust Audit          |
+|    • Sponsoring Member Creates On-Chain ApproveCampaign Proposal                        |
+|    • Token Holders Vote (cast_vote with Voting Tokens Locked in Vote-Escrow ATAs)       |
+|    • Timelocked Permissionless Execution: approve_and_go_live Activates Public Donations  |
++──────────────────────────────────────────┬──────────────────────────────────────────────+
+                                           │
+                                           ▼
++─────────────────────────────────────────────────────────────────────────────────────────+
+| 3. PUBLIC ESCROW FUNDING (/campaigns/[id])                                              |
+|    • Donors Deposit USDC Directly into Non-Custodial Campaign Escrow PDA (donate)       |
+|    • Creates On-Chain DonationRecord PDA Tracking Lifetime Contributions for Clawbacks  |
++──────────────────────────────────────────┬──────────────────────────────────────────────+
+                                           │
+                                           ▼
++─────────────────────────────────────────────────────────────────────────────────────────+
+| 4. TRANSPARENT MILESTONE PROOFS & DUAL-SIGNER RELEASE (/verifier)                       |
+|    • Creator Submits Verifiable Deliverable Proofs (Git Commits, Test Reports, Demos)   |
+|    • Evidence Files Pinned to Pinata IPFS (proof_cid)                                   |
+|    • Designated Verifier Audits Deliverables & Co-Signs propose_milestone on Solana     |
+|    • DAO Votes on ReleaseMilestone Proposal; Funds Disbursed & Milestone PDA Closed     |
++──────────────────────────────────────────┬──────────────────────────────────────────────+
+                                           │
+                                           ▼
++─────────────────────────────────────────────────────────────────────────────────────────+
+| 5. EMERGENCY RESCUE & DONOR CLAWBACK (/portfolio)                                       |
+|    • DAO Passes EmergencyWithdraw if Campaign Stalls (Funds Drained to DAO Treasury)    |
+|    • Donors Claim Pro-Rata Refunds (claim_refund) Directly from Remaining Escrow Balance|
++─────────────────────────────────────────────────────────────────────────────────────────+
+```
 
-2. **DAO Review & Governance Go-Live (`/governance`)**:
-   - The campaign enters the DAO review stage. Assigned verifiers and DAO members inspect the documents and AI Trust Audit report.
-   - Sponsoring members propose an on-chain `ApproveCampaign` vote.
-   - Token holders vote (`cast_vote`) with voting tokens locked in voter-escrow ATAs (preventing flash-loan voting and buy-vote-dump).
-   - Once passed and timelocked, a permissionless trigger executes `approve_and_go_live`, activating public donations.
+---
 
-3. **Public Escrow Funding (`/campaigns/[id]`)**:
-   - Donors transfer USDC directly into the campaign's non-custodial Escrow PDA (`donate`).
-   - Every donation creates an on-chain `DonationRecord` PDA tracking lifetime contributions for donor clawback protection.
+## 🌟 Key Capabilities
 
-4. **Transparent Deliverable Proofs & Dual-Signer Release (`/verifier`)**:
-   - For each milestone tranche, the creator submits verifiable deliverable proofs (git commit hashes, test suite reports, live demo URLs, invoices) pinned to IPFS (`proof_cid`).
-   - The **Designated Verifier** audits deliverables and co-signs `propose_milestone` on Solana.
-   - The DAO votes on a `ReleaseMilestone` proposal. Upon timelock execution, funds are atomically disbursed to the creator, the milestone PDA closes (returning rent), and donors can inspect the deliverable proof in the public inspector modal.
+### 🛡️ Privacy-Focused AI Verification & Diligence
+* **Client-Side SHA-256 Fingerprinting**: Computes cryptographic hashes in the browser before documents are uploaded.
+* **In-Memory Zero-Retention Processing**: Extracts text ephemerally without persisting private files to centralized disks or databases.
+* **PII Sanitization Shield**: Redacts emails, phone numbers, crypto private keys, and sensitive identifiers.
+* **Story vs. Document Cross-Examination**: Compares the campaign description against technical whitepapers and budget spreadsheets to catch contradictory claims, missing deliverables, or inflated numbers.
+* **5-Pillar Trust Scoring**: Generates an on-chain integer (`0–100`) based on:
+  1. *Document Authenticity & Consistency*
+  2. *Story & Document Cross-Alignment*
+  3. *Budget Feasibility & Market Dev Cost Scope*
+  4. *Deliverable Verifiability*
+  5. *AI Content & Spam Risk Probability*
 
-5. **Emergency Rescue & Donor Clawback (`/portfolio`)**:
-   - If a campaign stalls or acts maliciously, the DAO passes `EmergencyWithdraw` to drain remaining escrow to the canonical DAO treasury.
-   - Donors can immediately claim their pro-rata refund (`claim_refund`) from remaining escrow funds.
+### 📌 Pinata Cloud IPFS & Multi-Gateway Resolution
+* **Automatic Document Pinning**: Whitepapers, pitch decks, budget sheets, and deliverable evidence files are pinned to Pinata IPFS.
+* **Multi-Gateway Fallback**: Resolves content seamlessly across Dedicated Pinata Gateways, Cloudflare IPFS, and `ipfs.io`.
+* **Deterministic Offline Engine**: Falls back to deterministic SHA-256 base32 CIDv1 addressing if no Pinata API keys are supplied.
+
+### 📝 Rich GitHub Flavored Markdown (GFM)
+* Full markdown story rendering with custom typography, code blocks, task lists (`- [x]`), blockquotes, and tables.
+* Live **"Write (Markdown)"** vs. **"Preview"** tab toggle in the Campaign Creation Studio.
+* Public **Deliverable Proof Inspector** modal rendering verified test reports and evidence links in rich markdown.
 
 ---
 
@@ -40,14 +84,17 @@ Built with [Anchor](https://www.anchor-lang.com/) (Rust), Next.js 16 (React 19),
 ```
 ├── app/
 │   ├── admin/                # Protocol bootstrap, tokenomics, faucet & pause controls
-│   ├── api/ai/audit/         # Next.js API route for Privacy-Preserving AI Trust Scoring
+│   ├── api/
+│   │   ├── ai/audit/         # Next.js API route for Privacy-Preserving AI Trust Scoring (Gemini)
+│   │   └── pinata/upload/    # Next.js API route for Pinata file & JSON metadata pinning
 │   ├── campaigns/
 │   │   ├── [id]/             # Campaign details, AI audit breakdown, deliverable proof inspector
-│   │   └── new/              # 5-step wizard with document upload & AI milestone generator
+│   │   └── new/              # 5-step wizard with document dropzone, live GFM preview & AI engine
 │   ├── components/           # UI components, navbar, providers, cluster & wallet context
-│   │   └── fydao/            # Campaign cards, proposal cards, milestone dialogs, badges
+│   │   ├── fydao/            # Campaign cards, proposal cards, milestone dialogs, badges
+│   │   └── markdown-content.tsx # GitHub Flavored Markdown renderer (headings, code, tables)
 │   ├── explore/              # Public escrow discovery, category filtering, search & stats
-│   ├── generated/fydao/      # Codama-generated typed program client (@solana/kit)
+│   │   └── fydao/            # Codama-generated typed program client (@solana/kit)
 │   ├── governance/           # Governor hub: proposals, voting, timelock queue & token unlock
 │   ├── lib/                  # AI audit service, IPFS engine, PDA helpers, wallet connection
 │   ├── portfolio/            # Backer portfolio, donation receipts & emergency refund claimer
@@ -66,14 +113,33 @@ Built with [Anchor](https://www.anchor-lang.com/) (Rust), Next.js 16 (React 19),
 
 ## 🚀 Getting Started
 
+### 1. Install Dependencies
 ```shell
-# 1. Install dependencies
-npm install
+npm install --legacy-peer-deps
+```
 
-# 2. Build Anchor smart contract & generate Codama TypeScript client
+### 2. Configure Environment Variables (Optional)
+Copy `.env.example` to `.env.local` and add your API keys:
+```bash
+cp .env.example .env.local
+```
+
+```env
+# Pinata IPFS API
+PINATA_JWT="your_pinata_jwt_token_here"
+NEXT_PUBLIC_PINATA_GATEWAY="https://gateway.pinata.cloud/ipfs/"
+
+# Google Gemini API for AI Trust Scoring
+GEMINI_API_KEY="your_gemini_api_key_here"
+```
+
+### 3. Build Smart Contract & Generate Client
+```shell
 npm run setup
+```
 
-# 3. Start Next.js development server
+### 4. Start Next.js Development Server
+```shell
 npm run dev
 ```
 
@@ -87,11 +153,12 @@ Open [http://localhost:3000](http://localhost:3000) to explore the dApp.
 | :--- | :--- |
 | **Frontend** | Next.js 16 (App Router), React 19, TypeScript |
 | **Styling & UI** | Tailwind CSS v4, shadcn/ui, Lucide Icons |
+| **Markdown Engine** | `react-markdown`, `remark-gfm` (GitHub Flavored Markdown) |
 | **Solana SDK** | `@solana/kit`, `@wallet-standard/app`, `@wallet-standard/features` |
 | **Program Client** | Codama-generated typed client (`@codama/cli`) |
 | **Smart Contract** | Anchor 0.30.1 (Rust) on Solana Virtual Machine (SVM) |
-| **AI Verification** | In-Memory Privacy Engine + Google Gemini API (zero retention) |
-| **Storage & Proofs** | IPFS (deterministic CIDv1 with multi-gateway resolution) |
+| **AI Verification** | In-Memory Privacy Engine + Google Gemini 1.5 Flash (zero retention) |
+| **Storage & Proofs** | Pinata Cloud IPFS API + Multi-Gateway Resolution |
 
 ---
 

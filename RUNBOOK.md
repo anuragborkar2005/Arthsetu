@@ -1,7 +1,7 @@
 # 🏛️ Arthasetu (`fydao`) Protocol Runbook & Deployment Guide
 
 > **Decentralized Milestone Crowdfunding DAO on Solana**  
-> *Non-Custodial Escrows · Dual-Signer Deliverable Verification · Anti-Buy-Vote-Dump Governance · Pro-Rata Donor Clawbacks*
+> *Non-Custodial Escrows · Privacy AI Story-Doc Cross-Examination · Pinata Cloud IPFS · Dual-Signer Verification · Anti-Buy-Vote-Dump Governance · Pro-Rata Donor Clawbacks*
 
 ---
 
@@ -13,10 +13,10 @@
 4. [Client Generation & Frontend Setup](#4-client-generation--frontend-setup)
 5. [End-to-End Operational Lifecycle Runbook](#5-end-to-end-operational-lifecycle-runbook)
    - [Phase 1: Protocol Bootstrap (`/admin`)](#phase-1-protocol-bootstrap-admin)
-   - [Phase 2: Campaign Creation & IPFS Pinning (`/campaigns/new`)](#phase-2-campaign-creation--ipfs-pinning-campaignsnew)
-   - [Phase 3: Public Funding & USDC Donations (`/campaigns/[id]`)](#phase-3-public-funding--usdc-donations-campaignsid)
-   - [Phase 4: Milestone Deliverable Verification (`/verifier`)](#phase-4-milestone-deliverable-verification-verifier)
-   - [Phase 5: Timelocked DAO Governance & Release (`/governance`)](#phase-5-timelocked-dao-governance--release-governance)
+   - [Phase 2: Campaign Creation, Pinata IPFS Pinning & Story-Doc Cross-Examination (`/campaigns/new`)](#phase-2-campaign-creation-pinata-ipfs-pinning--story-doc-cross-examination-campaignsnew)
+   - [Phase 3: DAO Member Review & Go-Live Governance (`/governance` & `/verifier`)](#phase-3-dao-member-review--go-live-governance-governance--verifier)
+   - [Phase 4: Public Funding & USDC Donations (`/campaigns/[id]`)](#phase-4-public-funding--usdc-donations-campaignsid)
+   - [Phase 5: Milestone Deliverable Verification & Transparent Release (`/verifier` & `/campaigns/[id]`)](#phase-5-milestone-deliverable-verification--transparent-release-verifier--campaignsid)
    - [Phase 6: Donor Impact & Emergency Refund Clawback (`/portfolio`)](#phase-6-donor-impact--emergency-refund-clawback-portfolio)
 6. [Security & Trust Guarantees Checklist](#6-security--trust-guarantees-checklist)
 7. [CLI & JSON-RPC Query Cheat Sheet](#7-cli--json-rpc-query-cheat-sheet)
@@ -25,35 +25,38 @@
 
 ## 1. System Architecture & On-Chain Account Map
 
-Arthasetu is structured into three interlocking subsystems executed on the Solana Virtual Machine (SVM):
+Arthasetu is structured into three interlocking subsystems executed on the Solana Virtual Machine (SVM) and decentralized infrastructure:
 
 ```mermaid
 flowchart TD
-    subgraph CampaignSubsystem["1. Campaign & Escrow Subsystem"]
-        Camp["Campaign PDA<br/>['campaign', creator, id]"]
+    subgraph CampaignSubsystem["1. Campaign & Escrow Subsystem (SVM)"]
+        Camp["Campaign PDA<br/>['campaign', creator, id]<br/>trust_score: 0-100<br/>verifier: Pubkey"]
         Escrow["Campaign Escrow ATA<br/>(Owned by Campaign PDA)"]
         Ms["Milestone PDA<br/>['milestone', campaign, id]<br/>Dual-Signer Verified"]
         Donation["DonationRecord PDA<br/>['donation', campaign, donor]"]
     end
 
-    subgraph GovernanceSubsystem["2. Governor & Timelock Subsystem"]
+    subgraph GovernanceSubsystem["2. Governor & Timelock Subsystem (SVM)"]
         DaoCfg["DaoConfig PDA<br/>['dao_config']"]
-        GovMint["Governance Token<br/>['mint_authority']"]
+        GovMint["Governance Token ($ARTHA)<br/>['mint_authority']"]
         Prop["Proposal PDA<br/>['proposal', id]"]
         VoteEscrow["Vote Escrow ATA<br/>['vote_escrow', voter]"]
         VoteRec["VoteRecord PDA<br/>['vote', proposal, voter]"]
     end
 
-    subgraph VerificationSubsystem["3. Off-Chain IPFS Engine"]
-        MetaCID["Campaign Metadata CID<br/>(Branding, Story, Roadmap)"]
-        ProofCID["Milestone Proof CID<br/>(Git Commits, Test Reports, Links)"]
+    subgraph VerificationSubsystem["3. Off-Chain Pinata IPFS & Privacy AI Engine"]
+        Pinata["Pinata Cloud IPFS<br/>(Dedicated Gateways + Multi-Gateway Fallback)"]
+        Docs["Cryptographic Documents<br/>(Whitepapers, Budgets, Proofs)"]
+        AI["Privacy AI Cross-Examination Engine<br/>(Zero Retention · SHA-256 · PII Shield)"]
     end
 
     Camp -->|Owns Authority| Escrow
     Camp -->|Registers| Ms
     Camp -->|Tracks| Donation
-    MetaCID -.->|Referenced by| Camp
-    ProofCID -.->|Referenced by| Ms
+    Docs -->|Pinned to| Pinata
+    Pinata -.->|Referenced by CID| Camp
+    Pinata -.->|Referenced by CID| Ms
+    AI -->|Computes Trust Score & Alignment| Camp
 
     Prop -->|Atomic Release Trigger| Ms
     Prop -->|Atomic Approval Trigger| Camp
@@ -88,19 +91,26 @@ flowchart TD
 | **Node.js** | `20.x` or `22.x` | JavaScript/TypeScript runtime. |
 | **npm** or **pnpm** | `10+` | Package manager. |
 
-### 2.2 Solana Keypair Configuration
+### 2.2 Environment Configuration (`.env.local`)
 
-Generate or configure your local test keypair:
+Copy `.env.example` to `.env.local` to enable live Pinata IPFS pinning and Google Gemini AI audits:
+
 ```bash
-# Generate keypair if not already present
-solana-keygen new --no-bip39-passphrase -o ~/.config/solana/id.json
-
-# Check public address
-solana address
-
-# Set default RPC URL to localnet
-solana config set --url localhost
+cp .env.example .env.local
 ```
+
+```env
+# Pinata IPFS Credentials
+# Create an account at https://app.pinata.cloud/ -> API Keys -> Create Key
+PINATA_JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+NEXT_PUBLIC_PINATA_GATEWAY="https://gateway.pinata.cloud/ipfs/"
+
+# Google Gemini API Key for Privacy-Preserving AI Trust Scoring
+# Get a free API key at https://aistudio.google.com/
+GEMINI_API_KEY="AIzaSy..."
+```
+
+*(Note: If no API keys are provided, the protocol automatically operates in deterministic offline mode using browser WebCrypto SHA-256 and fallback heuristic scoring).*
 
 ---
 
@@ -141,14 +151,13 @@ anchor deploy --provider.cluster devnet
 ### 4.1 Generate TypeScript Codama Client
 Whenever smart contract instructions or account schemas change:
 ```bash
-# In the root repository directory
 npx @codama/cli run
 ```
 This generates typed account fetchers, PDA derivation helpers, and instruction builders in `app/generated/fydao/`.
 
 ### 4.2 Start the Next.js Frontend
 ```bash
-npm install
+npm install --legacy-peer-deps
 npm run dev
 ```
 Open your browser at **[http://localhost:3000](http://localhost:3000)**.
@@ -174,38 +183,46 @@ Open your browser at **[http://localhost:3000](http://localhost:3000)**.
 
 ---
 
-### Phase 2: Campaign Creation, Privacy AI Audit & IPFS Pinning (`/campaigns/new`)
+### Phase 2: Campaign Creation, Pinata IPFS Pinning & Story-Doc Cross-Examination (`/campaigns/new`)
 
 1. Navigate to **[http://localhost:3000/campaigns/new](http://localhost:3000/campaigns/new)**.
 2. **Step 1 · Identity & Branding**:
    - Enter Campaign Title, Tagline, Category (`Technology`, `DeFi`, `Climate`, etc.).
    - Provide banner image URL and project links (GitHub, Website, Twitter).
 3. **Step 2 · Docs & Privacy AI Audit**:
-   - Upload supporting documents (Whitepaper, Budget Sheet, Pitch Deck, Tech Specs).
-   - In-memory client-side SHA-256 fingerprinting hashes each document.
+   - Drop supporting documents (Whitepaper, Budget Sheet, Pitch Deck, Tech Specs).
+   - Each file is automatically uploaded and pinned to **Pinata Cloud IPFS** with its **SHA-256 checksum** displayed.
    - Click **"Run AI Audit & Scoring"** to execute the zero-retention Privacy AI Engine.
-   - Inspect the algorithmic **Trust Score (0–100)**, Authenticity, Feasibility, and AI Content Risk ratings.
-   - (Optional) Click **"Apply Milestones"** to auto-populate milestone tranches from the AI document audit.
+   - Inspect the **Trust Score (0–100)** and 5 sub-scores:
+     - *Authenticity Score*
+     - *Story vs. Document Alignment Score*
+     - *Feasibility Score*
+     - *Verifiability Score*
+     - *AI Content & Spam Risk*
+   - Review the **Story vs. Document Cross-Examination** panel for verified alignments and discrepancy alerts.
+   - (Optional) Click **"Apply Milestones"** to auto-populate milestone tranches suggested by AI.
 4. **Step 3 · Story & Milestone Roadmap**:
-   - Write or refine the project story in Markdown.
+   - Write or refine the project story using rich **GitHub Flavored Markdown (GFM)**.
+   - Switch between **"Write (Markdown)"** and **"Preview"** tabs to verify formatting.
    - Configure planned milestone release tranches (supports 1 to N milestones).
+   - When advancing to Step 4, the system automatically re-evaluates the updated story against your uploaded documents.
 5. **Step 4 · Funding Target & Designated Verifier**:
    - Specify target funding in USDC (e.g. `25,000 USDC`).
    - The AI Trust Score is automatically locked into the on-chain submission payload.
    - Set **Designated Verifier Solana Address** (auditor, DAO technical committee key, or creator's wallet).
 6. **Step 5 · Review & Launch**:
-   - Inspect verified document checksums and AI audit summaries.
-   - Click **"Sign & Launch Campaign"** (uploads `CampaignMetadata` to IPFS and creates the on-chain `Campaign` PDA on Solana with `is_live = false`).
+   - Inspect verified document checksums, Pinata IPFS links, and AI cross-examination summaries.
+   - Click **"Sign & Launch Campaign"** (uploads `CampaignMetadata` JSON to Pinata IPFS and creates the on-chain `Campaign` PDA on Solana with `is_live = false`).
 
 ---
 
-### Phase 3: DAO Member Verification & Go-Live Proposal (`/governance` & `/verifier`)
+### Phase 3: DAO Member Review & Go-Live Governance (`/governance` & `/verifier`)
 
 1. Newly created campaigns start in an unapproved state (`is_live = false`).
 2. Assigned DAO members and designated verifiers open **[http://localhost:3000/verifier](http://localhost:3000/verifier)** or **[http://localhost:3000/campaigns/[id]](http://localhost:3000/campaigns/[id])**.
-3. Review the Campaign Story, uploaded document checksums, and AI Trust Audit findings.
+3. Review the rich Markdown Campaign Story, uploaded document checksums, Pinata links, and AI Trust Audit findings.
 4. Click **"Sponsor DAO Vote"** to create an on-chain `ApproveCampaign` proposal.
-5. Community members vote (`Vote For`, `Vote Against`, `Abstain`).
+5. Community members vote (`Vote For`, `Vote Against`, `Abstain`) with tokens locked in vote-escrow ATAs.
 6. Once passed and the timelock delay elapses, click **"Execute Action Now"** (`approve_and_go_live`), activating public donations.
 
 ---
@@ -214,13 +231,14 @@ Open your browser at **[http://localhost:3000](http://localhost:3000)**.
 
 1. Navigate to **[http://localhost:3000/explore](http://localhost:3000/explore)** and click on the newly live campaign.
 2. Inspect the **Hero Header & Audit Tab**:
-   - On-chain AI Trust Score badge (0–100) and audit sub-scores.
-   - Verified supporting document fingerprints.
+   - On-chain AI Trust Score badge (0–100) and 5 audit sub-scores.
+   - Story vs. Document Cross-Examination findings.
+   - Verified supporting documents with direct Pinata IPFS gateway links.
    - Escrow accounting bar (Total Raised, Released to Creator, Locked in Vault).
 3. **Back the Campaign**:
    - Select a preset amount chip (`$50`, `$100`, `$250`, `$500`) or enter a custom USDC amount.
    - Click **"Donate USDC to Escrow"**.
-   - The transaction transfers stablecoins from the donor into the Campaign PDA's non-custodial Associated Token Account and initializes/increments the donor's on-chain [`DonationRecord`](file:///home/codex/projects/blockchain/Arthasetu/anchor/programs/fydao/src/state/donation_record.rs) PDA.
+   - The transaction transfers stablecoins from the donor into the Campaign PDA's non-custodial Associated Token Account and initializes/increments the donor's on-chain `DonationRecord` PDA.
 
 ---
 
@@ -229,18 +247,19 @@ Open your browser at **[http://localhost:3000](http://localhost:3000)**.
 1. When deliverables for Milestone #1 are complete, navigate to **[http://localhost:3000/verifier](http://localhost:3000/verifier)**.
 2. Open the **"Proof Builder"** tab:
    - Enter Milestone Title, summary of deliverables, git commit hash, live deployment URL, and test report links.
+   - Attach deliverable files via the **"Upload File to Pinata"** button.
    - Click **"Package & Pin to IPFS"** to generate the `proof_cid`.
 3. Switch to the **"Assigned to Me"** tab (using the connected designated verifier wallet):
    - Click **"Attest Next Milestone"**.
    - Paste the `proof_cid` and tranche release amount (e.g. `5,000 USDC`).
    - Click **"Attest & Create Milestone PDA"**.
-   - The on-chain `propose_milestone` instruction verifies dual-signatures (Creator + Verifier) and registers the [`Milestone`](file:///home/codex/projects/blockchain/Arthasetu/anchor/programs/fydao/src/state/milestone.rs) PDA on Solana.
+   - The on-chain `propose_milestone` instruction verifies dual-signatures (Creator + Verifier) and registers the `Milestone` PDA on Solana.
 4. **DAO Release Vote**:
    - Sponsoring members create a `ReleaseMilestone` proposal in **[http://localhost:3000/governance](http://localhost:3000/governance)**.
    - Community votes with locked tokens.
    - Upon timelock completion, permissionless trigger `release_milestone` atomically pays the creator and closes the milestone PDA.
 5. **Donor Deliverable Proof Inspector**:
-   - Donors open the campaign page `/campaigns/[id]` and click **"Inspect Proof"** on the milestone to view the verified git commits, live demo URLs, and cryptographic verifier attestations.
+   - Donors open the campaign page `/campaigns/[id]` and click **"Inspect Proof"** on the milestone to view the verified git commits, live demo URLs, and cryptographic verifier attestations rendered in rich GitHub Flavored Markdown.
 
 ---
 
@@ -268,6 +287,7 @@ Open your browser at **[http://localhost:3000](http://localhost:3000)**.
 | **M4: Donor Recourse** | Pro-Rata Clawbacks | Lifetime contributions tracked via `DonationRecord` PDAs allow backers to claim refunds if drained. |
 | **M5: Attestation Rigor** | Dual-Signer Validation | `propose_milestone` requires explicit signatures from both Creator and Designated Verifier. |
 | **M6: Timelock Safety** | Cool-Off Buffers | Succeeded proposals must wait for `timelock_delay` before permissionless execution can trigger. |
+| **M7: Privacy Diligence** | Zero-Retention AI | Documents are hashed client-side with SHA-256, sanitized for PII, and cross-examined without central storage. |
 
 ---
 
@@ -275,26 +295,20 @@ Open your browser at **[http://localhost:3000](http://localhost:3000)**.
 
 ### Query Campaign State via Solana CLI
 ```bash
-# Query all program accounts
+# Query Campaign PDA account data
 solana account <CAMPAIGN_PDA_ADDRESS>
 
 # Query Token Account balance of Campaign Escrow
 spl-token balance --address <CAMPAIGN_ESCROW_ATA>
 ```
 
-### Inspect IPFS Deliverable Metadata via Public Gateway
+### Inspect IPFS Deliverable Metadata via Pinata Gateway
 ```bash
 # Fetch Campaign Metadata
-curl -s "https://cloudflare-ipfs.com/ipfs/<CAMPAIGN_METADATA_CID>" | jq .
+curl -s "https://gateway.pinata.cloud/ipfs/<CAMPAIGN_METADATA_CID>" | jq .
 
 # Fetch Milestone Deliverable Proof
-curl -s "https://ipfs.io/ipfs/<MILESTONE_PROOF_CID>" | jq .
-```
-
-### Query Proposal State via Anchor IDL
-```bash
-# Inspect proposal state
-solana account <PROPOSAL_PDA_ADDRESS>
+curl -s "https://gateway.pinata.cloud/ipfs/<MILESTONE_PROOF_CID>" | jq .
 ```
 
 ---

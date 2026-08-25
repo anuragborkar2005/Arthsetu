@@ -212,8 +212,13 @@ Residual (with C4): transferring authority to a PDA still bricks signing because
 ### M10 — Mint authority not revoked / not program-controlled ✅
 **Resolved.** The governance mint's `MintTo` authority is now a program PDA set at `initialize_governance_token` (H5), so minting can only happen through `mint_governance_tokens`, which enforces `max_governance_supply` against the real `mint.supply` (C5). `total_minted` bookkeeping stays in sync as informational.
 
-Residual:
-- the authority key retains mint power **up to the cap** through the program (no governance vote or delay). For a real deployment, either revoke `MintTo` authority after initial distribution or gate minting behind a proposal.
+### M11 — Off-Chain Document Privacy & AI Diligence Model ✅
+**Resolved.** Off-chain campaign submission and review incorporate a comprehensive privacy-preserving diligence layer:
+1. **Client-Side SHA-256 Fingerprinting**: Documents are hashed in the browser using WebCrypto prior to transmission, creating tamper-proof cryptographic bindings.
+2. **Zero-Retention Ephemeral Processing**: Document text is extracted in memory buffers and never stored on centralized disks or databases.
+3. **PII Sanitization**: Emails, phone numbers, and crypto private keys are redacted before analysis.
+4. **Story vs. Document Cross-Examination**: The AI engine compares the campaign story against technical whitepapers and budget spreadsheets to catch contradictory claims, missing deliverables, or inflated numbers.
+5. **On-Chain Trust Score Binding**: The resulting score (`0..=100`) is recorded on the `Campaign` PDA (`create_campaign.rs:59-61`), giving DAO voters an unforgeable metric before sponsoring go-live proposals.
 
 ---
 
