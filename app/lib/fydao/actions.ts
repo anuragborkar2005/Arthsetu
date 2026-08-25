@@ -42,12 +42,19 @@ export async function ensureAta(
   owner: Address,
   mint: Address,
 ): Promise<Instruction[]> {
+  const mintInfo = await rpc.getAccountInfo(mint).send().catch(() => ({ value: null }));
+  if (!mintInfo.value) {
+    throw new Error(
+      `Token mint ${mint} is not initialized on this cluster. If you are on Localnet or Devnet, please initialize or select a valid mint in the Admin panel (/admin).`
+    );
+  }
+  const tokenProgram = (mintInfo.value.owner as Address) || TOKEN_PROGRAM_ADDRESS;
   const { findAta } = await import("./pdas");
-  const [ata] = await findAta(owner, mint);
-  const info = await rpc.getAccountInfo(ata).send();
+  const [ata] = await findAta(owner, mint, tokenProgram);
+  const info = await rpc.getAccountInfo(ata).send().catch(() => ({ value: null }));
   if (info.value) return [];
   const { createAtaInstruction } = await import("./mints");
-  return [await createAtaInstruction(payer, owner, mint)];
+  return [await createAtaInstruction(payer, owner, mint, tokenProgram)];
 }
 import {
   MPL_TOKEN_METADATA_PROGRAM_ADDRESS,

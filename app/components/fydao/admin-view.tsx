@@ -31,7 +31,7 @@ import {
 import { findAta } from "@/app/lib/fydao/pdas";
 import { formatCompact, truncate } from "@/app/lib/fydao/format";
 import { parseTokenAmount } from "@/app/lib/fydao/amount";
-import { GENESIS_AUTHORITY, USDC_MINT } from "@/app/lib/fydao/constants";
+import { GENESIS_AUTHORITY, USDC_MINT, getClusterUsdcMint } from "@/app/lib/fydao/constants";
 import type { Address } from "@solana/kit";
 import { ConnectGate } from "./shared";
 
@@ -112,7 +112,7 @@ export function AdminView() {
 
   const stablecoinMint: Address | undefined =
     daoConfig?.stablecoinMint ??
-    (cluster === "localnet" ? mockUsdcAddress : (USDC_MINT as Address));
+    (cluster === "localnet" ? mockUsdcAddress : getClusterUsdcMint(cluster));
 
   const { data: govMintInfo } = useMintInfo(govMintAddress);
   const { data: treasuryBalance } = useTokenBalance(

@@ -23,9 +23,23 @@ export const RENT_ADDRESS =
 export const GENESIS_AUTHORITY =
   "HHPM2hamGMj2MNRxv76pJ1Zct4fKZhuDzBEy1tobhNoM" as Address<"HHPM2hamGMj2MNRxv76pJ1Zct4fKZhuDzBEy1tobhNoM">;
 
-/** Real USDC on mainnet and devnet. */
-export const USDC_MINT =
+/** Circle Devnet USDC Mint. */
+export const DEVNET_USDC_MINT =
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU" as Address<"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU">;
+
+/** Real USDC on Solana Mainnet-Beta. */
+export const MAINNET_USDC_MINT =
   "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address<"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">;
+
+/** Default stablecoin mint for active cluster. */
+export function getClusterUsdcMint(cluster: string): Address {
+  if (cluster === "mainnet" || cluster === "mainnet-beta") {
+    return MAINNET_USDC_MINT;
+  }
+  return DEVNET_USDC_MINT;
+}
+
+export const USDC_MINT = DEVNET_USDC_MINT;
 
 export const STORAGE_KEY = "fydao";
 

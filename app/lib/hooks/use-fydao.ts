@@ -201,3 +201,21 @@ export function useFydaoWallet() {
     status,
   };
 }
+
+export function useSolBalance(address?: Address | null) {
+  const { cluster } = useCluster();
+  const { rpc } = useSolanaClient();
+  const key = address ? (["solana", cluster, "solBalance", address] as const) : null;
+  return useSWR(
+    key,
+    async () => {
+      try {
+        const { value } = await rpc.getBalance(address as Address).send();
+        return value;
+      } catch {
+        return 0n;
+      }
+    },
+    { refreshInterval: 10_000 }
+  );
+}

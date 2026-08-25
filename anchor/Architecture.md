@@ -46,10 +46,8 @@ src/
 
 ## 2. Program ID & Deployment Config
 
-- `declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS")` in `lib.rs:9`.
-  This is the well-known **Anchor placeholder / example ID** — the program is not deployed under a real keypair as written.
-- `anchor/Anchor.toml` declares `[programs.devnet] fydao = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"` (also `[programs.localnet]`).
-  Program name and ID are now aligned with `declare_id!` (M8), but the ID is still the Anchor placeholder — `anchor keys sync` + a real keypair are required before any real deploy.
+- `declare_id!("HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb")` in `lib.rs:9`.
+- `anchor/Anchor.toml` declares `[programs.devnet] fydao = "HwV2YLJscqtHApqHj3Lp6cW4hA3L7areeWe1PH9BUSBb"` (also `[programs.localnet]`).
 - `initialize_dao` is guarded by the pinned `GENESIS_AUTHORITY` constant (`lib.rs`) — set to the local dev wallet pubkey (the `[provider] wallet`) for the prototype; set it to the real deployer key before a production deployment (H1).
 
 ## 3. Account Model
@@ -60,8 +58,8 @@ All accounts are PDAs. `Milestone` and `VoteRecord` are **closed** (rent reclaim
 | ------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
 | `DaoConfig`         | `["dao_config"]`                                                        | authority, pending_authority, treasury, governance_mint, stablecoin_mint, voting params (voting_delay, voting_period, quorum_bps, proposal_threshold, timelock_delay), max_governance_supply, next_proposal_id, campaign_count, paused | `initialize_dao`, `create_campaign`, `create_proposal`, `transfer_authority`, `accept_authority` |
 | `GovernanceTokenState` | `["gov_token"]`                                                      | bump, mint, authority, total_minted                     | `initialize_governance_token`, `mint_governance_tokens`          |
-| `Campaign`          | `["campaign", creator, campaign_id]`                                    | creator, escrow_token_account, metadata_cid, trust_score, is_live, total_deposited, total_released, milestone_count, created_at, emergency_withdrawn | `create_campaign`, `approve_and_go_live`, `donate`, `propose_milestone`, `release_milestone`, `emergency_withdraw`, `claim_refund` |
-| `Milestone`         | `["milestone", campaign, milestone_id]`                                 | campaign, milestone_id, proof_cid, amount, released, proposed_at, released_at | `propose_milestone`, `release_milestone` (**closes**)            |
+| `Campaign`          | `["campaign", creator, campaign_id]`                                    | creator, escrow_token_account, metadata_cid, trust_score, verifier, is_live, total_deposited, total_released, milestone_count, created_at, emergency_withdrawn | `create_campaign`, `approve_and_go_live`, `donate`, `propose_milestone`, `release_milestone`, `emergency_withdraw`, `claim_refund` |
+| `Milestone`         | `["milestone", campaign, milestone_id]`                                 | campaign, milestone_id, proof_cid, amount, verified_by, released, proposed_at, released_at | `propose_milestone`, `release_milestone` (**closes**)            |
 | `Proposal`          | `["proposal", proposal_id]`                                             | proposer, description, action (`ProposalAction`), total_votes_at_creation, for/against/abstain_votes, state, created_at, vote_start, vote_end, queued_at, eta, executed | `create_proposal`, `cast_vote`, `queue_proposal`, `cancel_proposal`, action triggers (`execution.rs`), `unlock_votes` |
 | `VoteRecord`        | `["vote", proposal, voter]`                                             | proposal, voter, support, weight, voted_at, unlocked    | `cast_vote`, `unlock_votes` (**closes**)                         |
 | `DonationRecord`    | `["donation", campaign, donor]`                                         | campaign, donor, amount (lifetime contributions)        | `donate`, `claim_refund`                                         |

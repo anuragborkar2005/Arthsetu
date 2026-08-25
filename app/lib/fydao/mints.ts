@@ -113,8 +113,9 @@ export async function createAtaInstruction(
   payer: TransactionSigner,
   owner: Address,
   mint: Address,
+  tokenProgram: Address = TOKEN_PROGRAM_ADDRESS,
 ): Promise<Instruction> {
-  const [ata] = await findAta(owner, mint);
+  const [ata] = await findAta(owner, mint, tokenProgram);
   return getCreateAssociatedTokenIdempotentInstructionAsync({
     payer,
     ata,
@@ -122,7 +123,7 @@ export async function createAtaInstruction(
     mint,
     systemProgram:
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    tokenProgram,
   });
 }
 

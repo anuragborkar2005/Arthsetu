@@ -27,6 +27,7 @@ pub struct InitializeGovernanceToken<'info> {
     pub gov_token_state: Account<'info, GovernanceTokenState>,
 
     /// The mint that will be used as governance token
+    #[account(mut)]
     pub governance_mint: Account<'info, Mint>,
 
     /// Program PDA that becomes the governance mint's sole MintTo authority,
@@ -48,7 +49,7 @@ pub struct InitializeGovernanceToken<'info> {
 
     /// Metaplex metadata PDA for the governance mint
     /// Seeds: ["metadata", MPL_TOKEN_METADATA, mint]
-    #[account()]
+    #[account(mut)]
     /// CHECK: address validated in the handler via `find_program_address`
     pub metadata: UncheckedAccount<'info>,
 

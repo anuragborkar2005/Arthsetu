@@ -71,11 +71,12 @@ export async function findMetadataPda(
 export async function findAta(
   owner: Address,
   mint: Address,
+  tokenProgram: Address = TOKEN_PROGRAM_ADDRESS,
 ): Promise<ProgramDerivedAddress> {
   return findAssociatedTokenPda({
     owner,
     mint,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    tokenProgram,
   });
 }
 

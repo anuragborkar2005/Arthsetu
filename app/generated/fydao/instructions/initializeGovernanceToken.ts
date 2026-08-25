@@ -88,7 +88,7 @@ export type InitializeGovernanceTokenInstruction<
         ? WritableAccount<TAccountGovTokenState>
         : TAccountGovTokenState,
       TAccountGovernanceMint extends string
-        ? ReadonlyAccount<TAccountGovernanceMint>
+        ? WritableAccount<TAccountGovernanceMint>
         : TAccountGovernanceMint,
       TAccountMintAuthorityPda extends string
         ? ReadonlyAccount<TAccountMintAuthorityPda>
@@ -101,7 +101,7 @@ export type InitializeGovernanceTokenInstruction<
         ? ReadonlyAccount<TAccountTokenMetadataProgram>
         : TAccountTokenMetadataProgram,
       TAccountMetadata extends string
-        ? ReadonlyAccount<TAccountMetadata>
+        ? WritableAccount<TAccountMetadata>
         : TAccountMetadata,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
@@ -259,7 +259,7 @@ export async function getInitializeGovernanceTokenInstructionAsync<
     authority: { value: input.authority ?? null, isWritable: true },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     govTokenState: { value: input.govTokenState ?? null, isWritable: true },
-    governanceMint: { value: input.governanceMint ?? null, isWritable: false },
+    governanceMint: { value: input.governanceMint ?? null, isWritable: true },
     mintAuthorityPda: {
       value: input.mintAuthorityPda ?? null,
       isWritable: false,
@@ -272,7 +272,7 @@ export async function getInitializeGovernanceTokenInstructionAsync<
       value: input.tokenMetadataProgram ?? null,
       isWritable: false,
     },
-    metadata: { value: input.metadata ?? null, isWritable: false },
+    metadata: { value: input.metadata ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },
@@ -441,7 +441,7 @@ export function getInitializeGovernanceTokenInstruction<
     authority: { value: input.authority ?? null, isWritable: true },
     daoConfig: { value: input.daoConfig ?? null, isWritable: false },
     govTokenState: { value: input.govTokenState ?? null, isWritable: true },
-    governanceMint: { value: input.governanceMint ?? null, isWritable: false },
+    governanceMint: { value: input.governanceMint ?? null, isWritable: true },
     mintAuthorityPda: {
       value: input.mintAuthorityPda ?? null,
       isWritable: false,
@@ -454,7 +454,7 @@ export function getInitializeGovernanceTokenInstruction<
       value: input.tokenMetadataProgram ?? null,
       isWritable: false,
     },
-    metadata: { value: input.metadata ?? null, isWritable: false },
+    metadata: { value: input.metadata ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     rent: { value: input.rent ?? null, isWritable: false },

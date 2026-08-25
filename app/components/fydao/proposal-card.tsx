@@ -82,6 +82,15 @@ export function ProposalCard({
   const state = p.state;
   const { label, detail } = describeAction(act);
 
+  // Dynamically activate if Pending (0) and voteStart has been reached
+  const isVotingActive =
+    (state === 1 || (state === 0 && now >= Number(p.voteStart))) &&
+    now < Number(p.voteEnd);
+  const effectiveState =
+    state === 0 && now >= Number(p.voteStart) && now < Number(p.voteEnd)
+      ? 1
+      : state;
+
   const campaign =
     act.__kind !== "TransferAuthority"
       ? (campaigns ?? []).find((c) => c.address === act.campaign)
@@ -90,9 +99,11 @@ export function ProposalCard({
   const isAuthority = address === daoConfig?.authority;
   const isProposer = address === p.proposer;
   const canVote =
-    signer && state === 1 && voteRecord === null; // Active + not already voted
+    signer && isVotingActive && voteRecord === null; // Active + not already voted
   const canQueue =
-    signer && state === 4 && now >= Number(p.voteEnd); // Succeeded
+    signer &&
+    now >= Number(p.voteEnd) &&
+    (state === 4 || state === 1 || state === 0);
   const canExecute =
     signer &&
     state === 5 &&
@@ -243,7 +254,7 @@ export function ProposalCard({
               <CardTitle className="text-base">
                 Proposal #{p.proposalId.toString()}
               </CardTitle>
-              <ProposalStateBadge state={state} />
+              <ProposalStateBadge state={effectiveState} />
               {p.executed && <Badge variant="outline">executed</Badge>}
             </div>
             <p className="text-sm text-muted">{p.description}</p>
@@ -263,11 +274,28 @@ export function ProposalCard({
       </CardHeader>
 
       <CardContent className="px-0 space-y-4">
-        <div className="rounded-lg bg-muted/30 px-3 py-2">
-          <p className="text-xs text-muted">Action</p>
+        <div className="rounded-lg bg-muted/30 px-3 py-2 space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted">Action</p>
+            {campaign && (
+              <span className="text-[11px] font-semibold text-primary">
+                Trust Score: {campaign.account.trustScore.toString()}/100
+              </span>
+            )}
+          </div>
           <p className="text-sm font-medium">
             {label} <span className="font-mono text-xs text-muted">{detail}</span>
           </p>
+          {campaign && (
+            <div className="flex items-center gap-2 pt-1">
+              <a
+                href={`/campaigns/${campaign.account.campaignId.toString()}`}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Inspect Campaign &amp; Docs →
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-4 gap-2 text-center">
@@ -316,7 +344,7 @@ export function ProposalCard({
           </p>
         )}
 
-        {state === 0 && p.voteStart > 0n && (
+        {state === 0 && !isVotingActive && p.voteStart > 0n && (
           <p className="text-xs text-muted">
             Voting starts in {formatRelative(p.voteStart)}.
           </p>
