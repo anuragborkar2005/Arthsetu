@@ -526,7 +526,7 @@ function ProofInspectorDialog({
               )}
 
               <div className="flex justify-between text-[10px] text-muted-foreground border-t pt-2">
-                <span>Submitted: {formatDate(BigInt(Math.floor((proofData.submittedAt || Date.now()) / 1000)))}</span>
+                <span>Submitted: {proofData.submittedAt ? formatDate(BigInt(Math.floor(proofData.submittedAt / 1000))) : "Recently"}</span>
                 <a
                   href={`https://ipfs.io/ipfs/${cid}`}
                   target="_blank"
@@ -734,8 +734,9 @@ function MilestoneProofBuilder() {
         ]);
         toast.success(`Pinned ${file.name} to Pinata IPFS!`);
       }
-    } catch (err: any) {
-      toast.error("Failed to upload file to Pinata: " + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error("Failed to upload file to Pinata: " + msg);
     } finally {
       setIsUploadingEvidence(false);
       e.target.value = "";

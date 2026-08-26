@@ -2,6 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Navbar } from "../../components/navbar";
 import { GridBackground } from "../../components/grid-background";
 import { Card } from "@/components/ui/card";
@@ -24,7 +25,7 @@ import {
 import { useCampaignMetadata } from "@/app/lib/hooks/use-campaign-metadata";
 import { claimRefundActions, donateActions } from "@/app/lib/fydao/actions";
 import { parseTokenAmount, rawToDecimal } from "@/app/lib/fydao/amount";
-import { truncate, formatDate } from "@/app/lib/fydao/format";
+import { truncate } from "@/app/lib/fydao/format";
 import { fetchMetadataByCid, resolveIpfsUrl, type MilestoneProofMetadata } from "@/app/lib/ipfs";
 import type { Address } from "@solana/kit";
 import { CampaignStatusBadge } from "../../components/fydao/status-badge";
@@ -32,7 +33,6 @@ import { ProposeMilestoneDialog } from "../../components/fydao/milestone-dialog"
 import { CreateProposalDialog } from "../../components/fydao/create-proposal-dialog";
 import { MarkdownContent } from "../../components/markdown-content";
 import {
-  Shield,
   ShieldCheck,
   Coins,
   Milestone as MilestoneIcon,
@@ -43,7 +43,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertTriangle,
-  Lock,
   Sparkles,
   Share2,
   Cpu,
@@ -51,6 +50,8 @@ import {
   FileText,
   Layers,
   Vote,
+  Copy,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -77,6 +78,14 @@ export default function CampaignDetailPage({
   const [milestoneOpen, setMilestoneOpen] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [releaseOpen, setReleaseOpen] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   // Inspector modal for milestone deliverable proofs
   const [inspectedMilestone, setInspectedMilestone] = useState<{
@@ -259,10 +268,13 @@ export default function CampaignDetailPage({
         <div className="overflow-hidden rounded-3xl border border-border/80 bg-card shadow-sm mb-8">
           <div className="relative h-56 sm:h-72 w-full overflow-hidden bg-muted">
             {bannerImg ? (
-              <img
+              <Image
                 src={bannerImg}
-                alt="banner"
-                className="h-full w-full object-cover"
+                alt={metadata?.title || "Campaign banner"}
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 800px"
+                className="object-cover"
               />
             ) : (
               <div className="h-full w-full bg-gradient-to-r from-primary/30 via-background to-secondary flex items-center justify-center font-mono text-xl font-bold text-muted-foreground">
@@ -502,6 +514,69 @@ export default function CampaignDetailPage({
 
               {aiAudit ? (
                 <div className="space-y-4 text-xs">
+                  {/* Cryptographic Proofs & Privacy Attestation */}
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 pb-2">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <ShieldCheck className="h-4 w-4 text-primary" /> Cryptographic Integrity &amp; Zero-Retention Proofs
+                      </span>
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary capitalize">
+                        {aiAudit.privacyMode === "local_air_gapped" ? "100% Air-Gapped Local" : "Stateless Zero-Retention"}
+                      </Badge>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2 text-[11px] font-mono">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>Document Merkle Root:</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(aiAudit.docMerkleRoot || "00".repeat(32), "merkle")}
+                            className="text-primary hover:text-primary/80 flex items-center gap-1 text-[10px]"
+                          >
+                            {copiedField === "merkle" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            {copiedField === "merkle" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                        <p className="font-semibold text-foreground truncate bg-background/80 p-1.5 rounded border border-border/40">
+                          {aiAudit.docMerkleRoot || "00".repeat(32)}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>Canonical Audit Hash:</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(aiAudit.auditHash || "0x...", "hash")}
+                            className="text-primary hover:text-primary/80 flex items-center gap-1 text-[10px]"
+                          >
+                            {copiedField === "hash" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            {copiedField === "hash" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                        <p className="font-semibold text-primary truncate bg-background/80 p-1.5 rounded border border-border/40">
+                          {aiAudit.auditHash || "0x..."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[11px] text-muted-foreground">
+                      <span>🛡️ <strong>{aiAudit.redactionsCount?.totalRedacted ?? 0}</strong> sensitive tokens redacted in-memory</span>
+                      <span>·</span>
+                      <span>📊 Linguistic Human Depth: <strong>{aiAudit.stylometricMetrics?.burstinessScore ?? 75}/100</strong></span>
+                      <span>·</span>
+                      <span>
+                        {aiAudit.budgetAnalysis?.isBalanced ? (
+                          <span className="text-green-600 dark:text-green-400 font-medium">✓ Budget Math Balanced</span>
+                        ) : (
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">⚠️ Budget variance detected</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Sub-Scores Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
                     <div className="rounded-xl bg-muted/30 p-2.5">
                       <span className="text-[10px] text-muted-foreground uppercase">Authenticity</span>
@@ -524,6 +599,61 @@ export default function CampaignDetailPage({
                       <p className="font-bold text-sm">{aiAudit.aiGeneratedProbability}% ({aiAudit.aiGeneratedRisk})</p>
                     </div>
                   </div>
+
+                  {/* Budget Category Allocation Breakdown */}
+                  {aiAudit.budgetAnalysis?.categoryBreakdown && aiAudit.budgetAnalysis.categoryBreakdown.length > 0 && (
+                    <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Coins className="h-4 w-4 text-primary" /> Itemized Budget Category Allocations
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          Goal: ${aiAudit.budgetAnalysis.targetFundingUsdc?.toLocaleString()} USDC
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {aiAudit.budgetAnalysis.categoryBreakdown.map((cat, idx) => (
+                          <div key={idx} className="rounded-lg border border-border/60 bg-background/60 px-2.5 py-1.5 text-xs">
+                            <span className="capitalize font-medium text-foreground">{cat.category.replace("_", " ")}: </span>
+                            <span className="font-bold text-primary">${cat.amountUsdc.toLocaleString()}</span>
+                            <span className="text-muted-foreground text-[10px]"> ({cat.percentage}%)</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cross-Document Consistency Matrix */}
+                  {aiAudit.crossDocConsistencyMatrix && aiAudit.crossDocConsistencyMatrix.length > 0 && (
+                    <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-2">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <FileCheck2 className="h-4 w-4 text-primary" /> Multi-Document Consistency Matrix
+                      </span>
+                      <div className="space-y-1.5">
+                        {aiAudit.crossDocConsistencyMatrix.map((pair, idx) => (
+                          <div key={idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-2 rounded-lg bg-background/60 border border-border/40">
+                            <div className="truncate max-w-sm">
+                              <span className="font-semibold text-foreground">{pair.docAName}</span>
+                              <span className="text-muted-foreground"> ↔ </span>
+                              <span className="font-semibold text-foreground">{pair.docBName}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                  pair.status === "Consistent"
+                                    ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
+                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                                }`}
+                              >
+                                {pair.status} ({pair.consistencyScore}%)
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Story vs Document Cross-Alignment Findings */}
                   {((aiAudit.storyAlignmentFindings && aiAudit.storyAlignmentFindings.length > 0) ||

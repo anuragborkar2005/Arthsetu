@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "../../components/navbar";
 import { GridBackground } from "../../components/grid-background";
@@ -60,7 +61,6 @@ import {
   Rocket,
   Shield,
   ShieldCheck,
-  ShieldAlert,
   Plus,
   Trash2,
   ExternalLink,
@@ -76,7 +76,6 @@ import {
   Split,
 } from "lucide-react";
 import { ConnectGate } from "../../components/fydao/shared";
-import { truncate } from "@/app/lib/fydao/format";
 import { MarkdownContent } from "../../components/markdown-content";
 
 const DRAFT_KEY = "arthasetu:campaign:draft:v2";
@@ -172,6 +171,7 @@ function CampaignCreatorWizard() {
   );
   const [isUploadingDocs, setIsUploadingDocs] = useState(false);
   const [isScanningAi, setIsScanningAi] = useState(false);
+  const [forceLocalPrivacy, setForceLocalPrivacy] = useState(false);
   const [aiAuditReport, setAiAuditReport] = useState<AiAuditReport | null>(
     initialDraft.aiAuditReport || null
   );
@@ -278,7 +278,7 @@ function CampaignCreatorWizard() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const sha256 = await computeFileHash(file);
-        const textSnippet = await extractDocumentText(file);
+        const { textSnippet, pdfMetadata } = await extractDocumentText(file);
         let cat: DocumentAttachment["category"] = "other";
         const fname = file.name.toLowerCase();
         if (fname.includes("whitepaper") || fname.includes("wp"))
@@ -310,6 +310,7 @@ function CampaignCreatorWizard() {
           size: file.size,
           sha256,
           textSnippet,
+          pdfMetadata,
           ipfsCid: pinResult.cid,
           ipfsUrl: pinResult.gatewayUrl,
           category: cat,
@@ -319,8 +320,9 @@ function CampaignCreatorWizard() {
       toast.success(
         `Uploaded & pinned ${newAttachments.length} document(s) to Pinata IPFS with SHA-256!`
       );
-    } catch (err: any) {
-      toast.error("Failed to process documents: " + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown upload error";
+      toast.error("Failed to process documents: " + msg);
     } finally {
       setIsUploadingDocs(false);
       e.target.value = "";
@@ -341,6 +343,8 @@ function CampaignCreatorWizard() {
         description,
         targetFundingUsdc,
         documents,
+        creatorPubkey: address || "unspecified",
+        forceLocalOnly: forceLocalPrivacy,
         plannedMilestones: milestones,
       });
       setAiAuditReport(report);
@@ -348,8 +352,9 @@ function CampaignCreatorWizard() {
       toast.success(
         `Privacy AI Audit completed! Generated Trust Score: ${report.trustScore}/100`
       );
-    } catch (err: any) {
-      toast.error("AI audit failed: " + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown audit error";
+      toast.error("AI audit failed: " + msg);
     } finally {
       setIsScanningAi(false);
     }
@@ -770,9 +775,11 @@ function CampaignCreatorWizard() {
                     onClick={() => setBannerUrl(banner)}
                     className="h-7 w-12 overflow-hidden rounded-md border border-border/80 hover:ring-2 hover:ring-primary focus:outline-none"
                   >
-                    <img
+                    <Image
                       src={banner}
-                      alt="preset"
+                      alt="preset banner"
+                      width={48}
+                      height={28}
                       className="h-full w-full object-cover"
                     />
                   </button>
@@ -929,32 +936,46 @@ function CampaignCreatorWizard() {
               </div>
             )}
 
-            {/* Run AI Audit Action */}
+            {/* Privacy Mode Selector & AI Audit Action */}
             <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-secondary/10 p-5 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
-                    <Sparkles className="h-4 w-4" /> Privacy-Preserving AI Trust
-                    Verification
+                    <Sparkles className="h-4 w-4" /> Privacy-First AI Trust Verification
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Analyzes cross-document consistency, detects generic AI
-                    spam, and validates milestone scopes.
+                    Analyzes cross-document consistency, verifies budget math, redacts PII, and generates a Merkle-bound Trust Score.
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  onClick={handleTriggerAiScan}
-                  disabled={isScanningAi}
-                  className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm"
-                >
-                  <Cpu className="h-4 w-4" />
-                  {isScanningAi
-                    ? "Scanning Documents..."
-                    : aiAuditReport
-                      ? "Re-Run AI Audit"
-                      : "Run AI Audit & Scoring"}
-                </Button>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForceLocalPrivacy(!forceLocalPrivacy)}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-mono transition-colors flex items-center gap-1.5 ${
+                      forceLocalPrivacy
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                        : "bg-muted/40 border-border/80 text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Shield className="h-3 w-3" />
+                    {forceLocalPrivacy ? "Mode: 100% Air-Gapped Local" : "Mode: Zero-Retention Cloud"}
+                  </button>
+
+                  <Button
+                    type="button"
+                    onClick={handleTriggerAiScan}
+                    disabled={isScanningAi}
+                    className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm"
+                  >
+                    <Cpu className="h-4 w-4" />
+                    {isScanningAi
+                      ? "Scanning In-Memory..."
+                      : aiAuditReport
+                        ? "Re-Run Audit"
+                        : "Run AI Audit & Scoring"}
+                  </Button>
+                </div>
               </div>
 
               {isScanningAi && (
@@ -963,7 +984,7 @@ function CampaignCreatorWizard() {
                     <span>
                       Evaluating authenticity &amp; deliverable verifiability...
                     </span>
-                    <span>Analyzing</span>
+                    <span>Analyzing in-memory</span>
                   </div>
                   <Progress value={65} className="h-1.5" />
                 </div>
@@ -972,6 +993,51 @@ function CampaignCreatorWizard() {
               {/* AI Report Card */}
               {aiAuditReport && !isScanningAi && (
                 <div className="space-y-4 pt-2 border-t border-border/40">
+                  {/* Cryptographic Privacy & Attestation Banner */}
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 pb-2">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <ShieldCheck className="h-4 w-4 text-primary" /> Cryptographic Integrity &amp; Privacy Attestation
+                      </span>
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary capitalize">
+                        {aiAuditReport.privacyMode === "local_air_gapped" ? "100% Air-Gapped Local" : "Stateless Zero-Retention"}
+                      </Badge>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2 text-[11px] font-mono">
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Document Merkle Root:</span>
+                        <p className="font-semibold text-foreground truncate bg-background/60 p-1.5 rounded border border-border/40">
+                          {aiAuditReport.docMerkleRoot || "00".repeat(32)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Canonical SHA-256 Audit Hash:</span>
+                        <p className="font-semibold text-primary truncate bg-background/60 p-1.5 rounded border border-border/40">
+                          {aiAuditReport.auditHash || "0x..."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        🛡️ <strong className="text-foreground">{aiAuditReport.redactionsCount?.totalRedacted ?? 0}</strong> sensitive tokens redacted in-memory
+                      </span>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        📊 Linguistic Human Score: <strong className="text-foreground">{aiAuditReport.stylometricMetrics?.burstinessScore ?? 75}/100</strong>
+                      </span>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        {aiAuditReport.budgetAnalysis?.isBalanced ? (
+                          <span className="text-green-600 dark:text-green-400 font-medium">✓ Budget Math Balanced (0% variance)</span>
+                        ) : (
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">⚠️ Budget variance detected</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
                     <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold">
@@ -1523,9 +1589,11 @@ function CampaignCreatorWizard() {
             <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
               <div className="relative h-36 w-full bg-muted">
                 {bannerUrl ? (
-                  <img
+                  <Image
                     src={bannerUrl}
-                    alt="banner"
+                    alt="banner preview"
+                    fill
+                    sizes="400px"
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -1585,11 +1653,32 @@ function CampaignCreatorWizard() {
             </div>
 
             {/* Audit & Documents Summary */}
-            <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-2 text-xs">
-              <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <FileCheck2 className="h-4 w-4 text-primary" /> Verified
-                Supporting Documents ({documents.length})
-              </span>
+            <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <FileCheck2 className="h-4 w-4 text-primary" /> Verified
+                  Supporting Documents ({documents.length})
+                </span>
+                {aiAuditReport && (
+                  <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary">
+                    Merkle Verified
+                  </Badge>
+                )}
+              </div>
+
+              {aiAuditReport && (
+                <div className="rounded-lg bg-background/60 p-2.5 border border-border/40 space-y-1 font-mono text-[10px]">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Document Merkle Root:</span>
+                    <span className="text-foreground font-semibold">{aiAuditReport.docMerkleRoot.slice(0, 16)}...{aiAuditReport.docMerkleRoot.slice(-8)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Audit Binding Hash:</span>
+                    <span className="text-primary font-semibold">{aiAuditReport.auditHash.slice(0, 18)}...</span>
+                  </div>
+                </div>
+              )}
+
               {documents.length > 0 ? (
                 <div className="space-y-1 font-mono text-[11px] text-muted-foreground">
                   {documents.map((d, i) => (

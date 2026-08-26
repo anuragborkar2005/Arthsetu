@@ -1,17 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { Navbar } from "../components/navbar";
 import { GridBackground } from "../components/grid-background";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,28 +43,17 @@ import {
 import { parseTokenAmount, rawToDecimal } from "@/app/lib/fydao/amount";
 import {
   GENESIS_AUTHORITY,
-  USDC_MINT,
   getClusterUsdcMint,
 } from "@/app/lib/fydao/constants";
 import { lamports, type Address } from "@solana/kit";
 import { ConnectGate } from "../components/fydao/shared";
 import {
-  ShieldAlert,
   ShieldCheck,
   Coins,
   Settings2,
-  Lock,
-  Unlock,
   AlertTriangle,
-  ExternalLink,
-  Flame,
-  KeyRound,
-  RefreshCw,
-  Sliders,
   Sparkles,
   Zap,
-  CheckCircle2,
-  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
