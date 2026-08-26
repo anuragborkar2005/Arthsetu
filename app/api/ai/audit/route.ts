@@ -77,11 +77,18 @@ export async function POST(req: Request) {
     const docMerkleRoot = await computeDocumentMerkleRoot(docHashes);
 
     // 4. Quantitative Budget & Milestone Validation
+    const hasBudgetDocument = (documents as DocumentAttachment[]).some((d) => d.category === "budget");
+    const budgetDocText = sanitizedDocs
+      .filter((d) => d.category === "budget")
+      .map((d) => d.contentSample || "")
+      .join(" ");
     const combinedSanitizedText = sanitizedDocs.map((d) => d.contentSample).join(" ");
+
     const budgetAnalysis = evaluateBudgetMath({
       targetFundingUsdc: fundingNum,
-      docText: combinedSanitizedText,
+      docText: hasBudgetDocument ? budgetDocText : combinedSanitizedText,
       milestones: plannedMilestones,
+      hasBudgetDocument,
     });
 
     // 5. Cross-Document Consistency Matrix

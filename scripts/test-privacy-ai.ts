@@ -269,16 +269,33 @@ async function runTestSuite() {
       targetFundingUsdc: 50000,
       docText: docBudget,
       milestones: unbalancedMilestones,
+      hasBudgetDocument: true,
     });
 
-    assert(
-      !unbalancedAnalysis.isBalanced,
-      "Correctly flags unbalanced milestone sum"
-    );
-    assert(
-      unbalancedAnalysis.warnings.length > 0,
-      "Provides actionable milestone allocation warning"
-    );
+    assert(!unbalancedAnalysis.isBalanced, "Correctly flags unbalanced milestone sum");
+    assert(unbalancedAnalysis.warnings.length > 0, "Provides actionable milestone allocation warning");
+
+    // Test Resume / Non-Budget Document Upload (No False Positive Budget Warnings)
+    const resumeText = `
+      Yash Izate
+      +91 9075151277 | yashizate.softech@gmail.com
+      B.Tech student in VLSI Design & Technology – CGPA: 8.74 (2023 - 2027)
+      Higher Secondary Certificate – 72.33% (2020 - 2022)
+      Top 60 among 3000+ submissions (2026).
+    `;
+
+    const resumeAnalysis = evaluateBudgetMath({
+      targetFundingUsdc: 25000,
+      docText: resumeText,
+      milestones: [
+        { targetAmountUsdc: "15000", title: "Phase 1: Relief Supplies" },
+        { targetAmountUsdc: "10000", title: "Phase 2: Medical Aid" },
+      ],
+      hasBudgetDocument: false,
+    });
+
+    assert(resumeAnalysis.isBalanced, "Resume upload without budget document is balanced with milestones");
+    assert(resumeAnalysis.warnings.length === 0, "No false positive budget variance warnings on resume upload");
   }
 
   // -------------------------------------------------------------

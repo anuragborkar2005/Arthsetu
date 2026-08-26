@@ -149,6 +149,22 @@ export async function extractDocumentText(file: File): Promise<{
       }
     }
 
+    if (file.name.endsWith(".pdf") || file.type.includes("pdf")) {
+      // Clean PDF bytecode markers, object tags, and internal stream definitions
+      str = str
+        .replace(/\/\w+\s+\d+\s+0\s+R/g, " ")
+        .replace(/\/Length\s+\d+/gi, " ")
+        .replace(/\/Filter\s+\/\w+/gi, " ")
+        .replace(/\/CIDInit\b/gi, " ")
+        .replace(/\/Font\w*/gi, " ")
+        .replace(/\/ProcSet\b/gi, " ")
+        .replace(/\/XObject\b/gi, " ")
+        .replace(/endobj\b/gi, " ")
+        .replace(/endstream\b/gi, " ")
+        .replace(/stream\b/gi, " ")
+        .replace(/<<.*?>>/g, " ");
+    }
+
     const textSnippet = str.replace(/\s+/g, " ").slice(0, 25000);
     return { textSnippet, pdfMetadata };
   } catch (err) {
@@ -409,10 +425,17 @@ export async function evaluateFallbackHeuristicAudit(params: {
   const docMerkleRoot = await computeDocumentMerkleRoot(docHashes);
 
   // 4. Quantitative Budget & Milestone Math Validation
+  const hasBudgetDocument = sanitizedDocs.some((d) => d.category === "budget");
+  const budgetDocText = sanitizedDocs
+    .filter((d) => d.category === "budget")
+    .map((d) => d.textSnippet || "")
+    .join(" ");
+
   const budgetAnalysis = evaluateBudgetMath({
     targetFundingUsdc: fundingNum,
-    docText: allDocText,
+    docText: hasBudgetDocument ? budgetDocText : allDocText,
     milestones: plannedMilestones,
+    hasBudgetDocument,
   });
 
   // 5. Pairwise Multi-Document Consistency Matrix
