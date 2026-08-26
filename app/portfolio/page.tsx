@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Navbar } from "../components/navbar";
 import { GridBackground } from "../components/grid-background";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -302,7 +303,7 @@ function BackedCampaignCard({
 }: {
   donation: { address: string; account: DonationRecord };
   campaign?: { address: string; account: Campaign };
-  milestones: Array<{ address: string; account: any }>;
+  milestones: Array<{ address: string; account: { released: boolean; milestoneId?: bigint; amount?: bigint } }>;
   onViewReceipt: () => void;
 }) {
   const { data: metadata } = useCampaignMetadata(campaign?.account.metadataCid);
@@ -316,7 +317,13 @@ function BackedCampaignCard({
       <div>
         {bannerImg && (
           <div className="relative h-32 w-full overflow-hidden bg-muted">
-            <img src={bannerImg} alt="banner" className="h-full w-full object-cover" />
+            <Image
+              src={bannerImg}
+              alt={metadata?.title || "Campaign banner"}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+            />
             <div className="absolute top-3 right-3">
               {c && <CampaignStatusBadge isLive={c.isLive} emergencyWithdrawn={c.emergencyWithdrawn} />}
             </div>

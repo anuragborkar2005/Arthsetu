@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Navbar } from "../components/navbar";
 import { GridBackground } from "../components/grid-background";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { useCampaignMetadata } from "@/app/lib/hooks/use-campaign-metadata";
 import { CAMPAIGN_CATEGORIES, resolveIpfsUrl } from "@/app/lib/ipfs";
 import { rawToDecimal } from "@/app/lib/fydao/amount";
 import { truncate } from "@/app/lib/fydao/format";
+import type { Campaign, Milestone } from "@/app/generated/fydao/accounts";
 import { CampaignStatusBadge } from "../components/fydao/status-badge";
 import {
   Search,
@@ -231,8 +233,8 @@ function CampaignsFilteredGrid({
   sortBy,
   viewMode,
 }: {
-  campaigns: Array<{ address: string; account: any }>;
-  milestones: Array<{ address: string; account: any }>;
+  campaigns: Array<{ address: string; account: Campaign }>;
+  milestones: Array<{ address: string; account: Milestone }>;
   search: string;
   statusFilter: string;
   categoryFilter: string;
@@ -315,8 +317,8 @@ function ExplorerCampaignCard({
   milestones,
   viewMode,
 }: {
-  campaign: { address: string; account: any };
-  milestones: Array<{ address: string; account: any }>;
+  campaign: { address: string; account: Campaign };
+  milestones: Array<{ address: string; account: Milestone }>;
   viewMode: "grid" | "list";
 }) {
   const c = campaign.account;
@@ -336,7 +338,13 @@ function ExplorerCampaignCard({
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
               {bannerImg ? (
-                <img src={bannerImg} alt="banner" className="h-14 w-20 rounded-xl object-cover shrink-0" />
+                <Image
+                  src={bannerImg}
+                  alt={metadata?.title || "Campaign banner"}
+                  width={80}
+                  height={56}
+                  className="h-14 w-20 rounded-xl object-cover shrink-0"
+                />
               ) : (
                 <div className="h-14 w-20 rounded-xl bg-gradient-to-br from-primary/20 to-secondary shrink-0 flex items-center justify-center font-bold text-xs text-primary">
                   #{c.campaignId.toString()}
@@ -381,9 +389,11 @@ function ExplorerCampaignCard({
       <Card className="overflow-hidden border-border/60 hover:border-primary/50 transition-all hover:shadow-md h-full flex flex-col">
         <div className="relative h-36 w-full overflow-hidden bg-muted">
           {bannerImg ? (
-            <img
+            <Image
               src={bannerImg}
-              alt={metadata?.title || "banner"}
+              alt={metadata?.title || "Campaign banner"}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (

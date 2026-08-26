@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,7 +94,13 @@ export function CampaignCard({
     <Card className="overflow-hidden border-border/80 transition-shadow hover:shadow-md">
       {bannerImg && (
         <div className="relative h-32 w-full overflow-hidden bg-muted">
-          <img src={bannerImg} alt={metadata?.title || "banner"} className="h-full w-full object-cover" />
+          <Image
+            src={bannerImg}
+            alt={metadata?.title || "Campaign banner"}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover"
+          />
           <div className="absolute top-3 right-3">
             <CampaignStatusBadge
               isLive={c.isLive}

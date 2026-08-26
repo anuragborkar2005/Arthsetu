@@ -213,7 +213,25 @@ Stored at `campaign.metadata_cid`:
       "Target disaster zones match official disaster report"
     ],
     "storyDiscrepancies": [],
-    "auditHash": "0x94f1c7e8a203b41d"
+    "docMerkleRoot": "7a3f89b1c4e2056789abcdef0123456789abcdef0123456789abcdef01234567",
+    "auditHash": "0x94f1c7e8a203b41de4567890abcdef1234567890abcdef1234567890abcdef12",
+    "budgetAnalysis": {
+      "targetFundingUsdc": 50000,
+      "isBalanced": true,
+      "categoryBreakdown": [
+        { "category": "operations_legal", "amountUsdc": 20000, "percentage": 40 },
+        { "category": "infrastructure", "amountUsdc": 20000, "percentage": 40 },
+        { "category": "engineering", "amountUsdc": 10000, "percentage": 20 }
+      ]
+    },
+    "crossDocConsistencyMatrix": [
+      {
+        "docAName": "Campaign Story",
+        "docBName": "Assam_State_Disaster_Report_2026.pdf",
+        "consistencyScore": 95,
+        "status": "Consistent"
+      }
+    ]
   },
   "plannedMilestones": [
     {
