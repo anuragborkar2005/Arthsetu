@@ -39,9 +39,10 @@ async function computeFallbackCid(buffer: ArrayBuffer): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const pinataJwt = process.env.PINATA_JWT || process.env.NEXT_PUBLIC_PINATA_JWT;
-    const pinataApiKey = process.env.PINATA_API_KEY;
-    const pinataSecretKey = process.env.PINATA_SECRET_API_KEY || process.env.PINATA_API_SECRET;
+    const rawJwt = process.env.PINATA_JWT || process.env.NEXT_PUBLIC_PINATA_JWT || "";
+    const cleanJwt = rawJwt.trim().replace(/^Bearer\s+/i, "");
+    const pinataApiKey = process.env.PINATA_API_KEY?.trim();
+    const pinataSecretKey = (process.env.PINATA_SECRET_API_KEY || process.env.PINATA_API_SECRET)?.trim();
     const gatewayBase = process.env.NEXT_PUBLIC_PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs/";
     const normalizedGateway = gatewayBase.endsWith("/") ? gatewayBase : `${gatewayBase}/`;
 
@@ -63,12 +64,11 @@ export async function POST(req: NextRequest) {
 
       const fileBuffer = await file.arrayBuffer();
 
-      // If Pinata credentials are available, upload to Pinata API
-      if (pinataJwt || (pinataApiKey && pinataSecretKey)) {
+      // If Pinata credentials are available, attempt upload to Pinata Cloud API with timeout
+      if (cleanJwt || (pinataApiKey && pinataSecretKey)) {
         try {
           const pinataFormData = new FormData();
-          const blob = new Blob([fileBuffer], { type: file.type || "application/octet-stream" });
-          pinataFormData.append("file", blob, customName || file.name);
+          pinataFormData.append("file", file, customName || file.name);
 
           const pinataMetadata = JSON.stringify({
             name: customName || file.name,
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
           pinataFormData.append("pinataMetadata", pinataMetadata);
 
           const headers: Record<string, string> = {};
-          if (pinataJwt) {
-            headers["Authorization"] = `Bearer ${pinataJwt}`;
+          if (cleanJwt) {
+            headers["Authorization"] = `Bearer ${cleanJwt}`;
           } else if (pinataApiKey && pinataSecretKey) {
             headers["pinata_api_key"] = pinataApiKey;
             headers["pinata_secret_api_key"] = pinataSecretKey;
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
             method: "POST",
             headers,
             body: pinataFormData,
+            signal: AbortSignal.timeout(6000),
           });
 
           if (pinataRes.ok) {
@@ -108,14 +109,15 @@ export async function POST(req: NextRequest) {
             });
           } else {
             const errText = await pinataRes.text();
-            console.warn("Pinata API returned error:", errText);
+            console.warn("Pinata API returned error response:", pinataRes.status, errText);
           }
-        } catch (pinataErr: any) {
-          console.warn("Pinata upload threw exception, using fallback:", pinataErr.message);
+        } catch (pinataErr: unknown) {
+          const msg = pinataErr instanceof Error ? pinataErr.message : String(pinataErr);
+          console.warn("Pinata cloud upload unavailable, activating offline CID fallback:", msg);
         }
       }
 
-      // Deterministic fallback if Pinata API is not configured or fails
+      // Deterministic fallback if Pinata API is not configured or offline
       const fallbackCid = await computeFallbackCid(fileBuffer);
       return NextResponse.json({
         success: true,
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest) {
         isRealPinata: false,
         size: file.size,
         filename: file.name,
-        message: "Pinned locally to content-addressed cache (configure PINATA_JWT for live Pinata cloud pin)",
+        message: "Pinned locally to content-addressed cache (offline fallback)",
       });
     }
 
@@ -145,7 +147,7 @@ export async function POST(req: NextRequest) {
       const encoder = new TextEncoder();
       const buffer = encoder.encode(jsonString);
 
-      if (pinataJwt || (pinataApiKey && pinataSecretKey)) {
+      if (cleanJwt || (pinataApiKey && pinataSecretKey)) {
         try {
           const pinataPayload = {
             pinataOptions: {
@@ -165,8 +167,8 @@ export async function POST(req: NextRequest) {
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
           };
-          if (pinataJwt) {
-            headers["Authorization"] = `Bearer ${pinataJwt}`;
+          if (cleanJwt) {
+            headers["Authorization"] = `Bearer ${cleanJwt}`;
           } else if (pinataApiKey && pinataSecretKey) {
             headers["pinata_api_key"] = pinataApiKey;
             headers["pinata_secret_api_key"] = pinataSecretKey;
@@ -176,6 +178,7 @@ export async function POST(req: NextRequest) {
             method: "POST",
             headers,
             body: JSON.stringify(pinataPayload),
+            signal: AbortSignal.timeout(6000),
           });
 
           if (pinataRes.ok) {
@@ -190,10 +193,11 @@ export async function POST(req: NextRequest) {
             });
           } else {
             const errText = await pinataRes.text();
-            console.warn("Pinata JSON pinning error:", errText);
+            console.warn("Pinata JSON pinning error response:", pinataRes.status, errText);
           }
-        } catch (pinataErr: any) {
-          console.warn("Pinata JSON pinning exception:", pinataErr.message);
+        } catch (pinataErr: unknown) {
+          const msg = pinataErr instanceof Error ? pinataErr.message : String(pinataErr);
+          console.warn("Pinata JSON pinning unavailable, activating offline CID fallback:", msg);
         }
       }
 
@@ -204,15 +208,16 @@ export async function POST(req: NextRequest) {
         uri: `ipfs://${fallbackCid}`,
         gatewayUrl: `https://ipfs.io/ipfs/${fallbackCid}`,
         isRealPinata: false,
-        message: "Pinned locally to content-addressed cache (configure PINATA_JWT for live Pinata cloud pin)",
+        message: "Pinned locally to content-addressed cache (offline fallback)",
       });
     }
 
     return NextResponse.json({ error: "Unsupported content type" }, { status: 400 });
-  } catch (err: any) {
-    console.error("Pinata upload route error:", err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Pinata upload route error:", msg);
     return NextResponse.json(
-      { error: err.message || "Failed to process Pinata upload" },
+      { error: msg || "Failed to process Pinata upload" },
       { status: 500 }
     );
   }

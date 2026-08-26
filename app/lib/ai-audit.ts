@@ -466,8 +466,8 @@ export async function evaluateFallbackHeuristicAudit(params: {
   if (defenseStory.injectionsNeutralized > 0) authenticity -= 15;
   authenticity = Math.max(20, Math.min(98, authenticity));
 
-  // 8. 3 Focused Domain Ontologies & Story Alignment
-  let alignmentScore = 75;
+  // 8. Domain Ontologies & Story Alignment Cross-Examination
+  let alignmentScore = 40; // Base score before content corroboration
   const storyAlignmentFindings: string[] = [];
   const storyDiscrepancies: string[] = [];
 
@@ -477,59 +477,85 @@ export async function evaluateFallbackHeuristicAudit(params: {
       "token", "governance", "litesvm", "spl-token", "token-2022", "oracle", "pyth",
       "raydium", "amm", "liquidity", "vault", "frontend", "sdk", "wallet"
     ],
+    technology: [
+      "software", "architecture", "frontend", "backend", "api", "sdk", "database",
+      "smart contract", "solana", "rust", "anchor", "react", "nextjs", "iot", "sensor", "ai"
+    ],
     ai_depin: [
       "model", "weights", "inference", "gpu", "training", "dataset", "depin",
       "telemetry", "worker node", "latency", "pipeline", "onnx", "lora", "compute"
     ],
+    climate_relief: [
+      "flood", "disaster", "relief", "rescue", "medical", "food", "shelter", "water",
+      "emergency", "rations", "supplies", "camp", "evacuation", "rehabilitation",
+      "assam", "climate", "aid", "health", "volunteer", "distribution"
+    ],
     public_goods: [
       "impact", "community", "open source", "grant", "dao", "education",
-      "relief", "charity", "public good", "non-profit", "volunteer", "verification"
+      "charity", "public good", "non-profit", "volunteer", "verification", "workshop"
     ],
   };
 
-  let activeKeywords = ONTOLOGIES.solana_defi;
-  if (category === "defi" || category === "infrastructure" || category === "technology") {
+  let activeKeywords = ONTOLOGIES.technology;
+  if (category === "defi" || category === "infrastructure") {
     activeKeywords = ONTOLOGIES.solana_defi;
+  } else if (category === "technology") {
+    activeKeywords = ONTOLOGIES.technology;
   } else if (category === "gaming" || category === "social") {
-    activeKeywords = [...ONTOLOGIES.solana_defi, ...ONTOLOGIES.ai_depin];
+    activeKeywords = [...ONTOLOGIES.technology, ...ONTOLOGIES.ai_depin];
+  } else if (category === "climate") {
+    activeKeywords = ONTOLOGIES.climate_relief;
   } else if (category === "art" || category === "community") {
     activeKeywords = ONTOLOGIES.public_goods;
   }
 
   if (documents.length === 0) {
-    alignmentScore = 50;
-    storyDiscrepancies.push("No documents attached to verify claims made in the campaign story.");
+    alignmentScore = 35;
+    storyDiscrepancies.push("No supporting documents attached to verify claims made in the campaign story.");
   } else {
-    let matchedKeywords = 0;
+    // Check story domain keywords against document text
+    let matchedStoryDocTerms = 0;
+    const storyWords = descLower.split(/\s+/).filter((w) => w.length > 3);
+    const uniqueStoryWords = Array.from(new Set(storyWords));
+
     for (const kw of activeKeywords) {
       if (descLower.includes(kw) && allDocText.includes(kw)) {
-        matchedKeywords++;
+        matchedStoryDocTerms++;
       }
     }
 
-    if (matchedKeywords >= 3) {
-      alignmentScore += 15;
-      storyAlignmentFindings.push(`Technical concepts in story (${matchedKeywords} domain topics) are corroborated by attached documentation.`);
-    } else if (matchedKeywords === 0 && documents.some((d) => d.category === "whitepaper" || d.category === "technical_spec")) {
-      alignmentScore -= 12;
-      storyDiscrepancies.push("Technical terminology in the campaign story has low overlap with uploaded specifications.");
+    // Significant content keyword overlap between story and documents
+    let generalTermOverlap = 0;
+    for (const term of uniqueStoryWords.slice(0, 50)) {
+      if (allDocText.includes(term)) {
+        generalTermOverlap++;
+      }
     }
 
-    if (budgetAnalysis.findings.length > 0) {
-      storyAlignmentFindings.push(...budgetAnalysis.findings);
-      alignmentScore += 8;
-    }
-    if (budgetAnalysis.warnings.length > 0) {
-      storyDiscrepancies.push(...budgetAnalysis.warnings);
-      alignmentScore -= 12;
-    }
+    const hasTitleMatch = title.length > 4 && allDocText.includes(titleLower.slice(0, 15));
+    const hasTaglineMatch = tagline && tagline.length > 8 && allDocText.includes(tagline.toLowerCase().slice(0, 20));
 
-    if (title.length > 4 && allDocText.includes(titleLower.slice(0, 15))) {
-      storyAlignmentFindings.push(`Project branding ("${title}") is explicitly referenced in attached documents.`);
-      alignmentScore += 5;
-    } else if (tagline && tagline.length > 8 && allDocText.includes(tagline.toLowerCase().slice(0, 20))) {
-      storyAlignmentFindings.push(`Project mission ("${tagline.slice(0, 30)}...") is corroborated in attached documentation.`);
-      alignmentScore += 3;
+    if (matchedStoryDocTerms >= 3 || (generalTermOverlap >= 10 && (hasTitleMatch || hasTaglineMatch))) {
+      alignmentScore = 85;
+      storyAlignmentFindings.push(
+        `Technical and domain concepts in story (${matchedStoryDocTerms} domain topics) are corroborated by attached documentation.`
+      );
+      if (hasTitleMatch) {
+        alignmentScore += 5;
+        storyAlignmentFindings.push(`Project branding ("${title}") is explicitly referenced in attached documents.`);
+      }
+      if (hasTaglineMatch) {
+        alignmentScore += 4;
+        storyAlignmentFindings.push(`Project mission ("${tagline.slice(0, 30)}...") is corroborated in attached documentation.`);
+      }
+    } else if (matchedStoryDocTerms === 0 && !hasTitleMatch) {
+      alignmentScore = 30;
+      storyDiscrepancies.push(
+        `Low Story-Document Alignment: Attached document (e.g. personal profile/resume) does not substantiate the specific project scope described in the campaign story ("${title}").`
+      );
+    } else {
+      alignmentScore = 60;
+      storyAlignmentFindings.push("Partial terminology match between story narrative and attached documents.");
     }
 
     // EVM vs Solana mismatch check

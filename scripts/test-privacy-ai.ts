@@ -416,6 +416,39 @@ async function runTestSuite() {
       report.budgetAnalysis.isBalanced,
       "Confirmed balanced budget analysis"
     );
+
+    // Test Resume uploaded to Flood Relief campaign (should flag low story-document alignment)
+    const mismatchReport = await evaluateFallbackHeuristicAudit({
+      title: "Assam Flood Relief 2026",
+      tagline: "Emergency water rescue and medical relief for flood victims",
+      category: "climate",
+      description:
+        "Mobilizing emergency rescue boats, medical supplies, and flood ration kits to affected districts across Assam.",
+      targetFundingUsdc: "25000",
+      documents: [
+        {
+          name: "Yash_Izate_Resume.pdf",
+          type: "application/pdf",
+          size: 85000,
+          sha256: "5555555555555555555555555555555555555555555555555555555555555555",
+          category: "other",
+          textSnippet: "B.Tech in VLSI Design, Java, Python, IoT, STM32, full stack developer seeking software role.",
+        },
+      ],
+      plannedMilestones: [
+        { id: 0, title: "Supplies", description: "Food & Rations", targetAmountUsdc: "15000" },
+        { id: 1, title: "Medical", description: "Clinics", targetAmountUsdc: "10000" },
+      ],
+    });
+
+    assert(
+      mismatchReport.subScores.storyDocumentAlignmentScore <= 35,
+      `Correctly flags low story-document alignment for resume on flood relief (${mismatchReport.subScores.storyDocumentAlignmentScore}%)`
+    );
+    assert(
+      mismatchReport.storyDiscrepancies.some((d) => d.includes("Low Story-Document Alignment")),
+      "Explicitly reports Low Story-Document Alignment discrepancy for uncorroborated document"
+    );
   }
 
   console.log("\n=======================================================");
