@@ -107,6 +107,7 @@ All comprehensive architecture, security, operational, and technical guides are 
 
 | Guide | Description |
 | :--- | :--- |
+| **[🧭 Plain-English User Flow & PPT Kit](docs/USER_FLOW.md)** | Non-crypto presentation guide, master PPT architecture diagrams, plain-English translations, and 4 role-based user journeys. |
 | **[📊 Technical Comparison & Rationale](docs/COMPARISON_AND_EXPERIMENTS.md)** | Full EVM vs. Solana architectural comparison, engineering rationale for all chosen subsystems, and 8 verified empirical benchmarks. |
 | **[🌍 UN SDG Alignment](docs/SDG_ALIGNMENT.md)** | Deep dive into how Arthasetu advances UN SDGs 16, 9, 13, 10, and 17. |
 | **[🏛️ System Architecture](docs/ARCHITECTURE.md)** | Full smart contract architecture, Solana PDA account map, and Pinata IPFS schemas. |

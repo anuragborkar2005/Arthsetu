@@ -8,6 +8,7 @@ Welcome to the centralized documentation hub for the **Arthasetu Protocol**, a d
 
 | Document | Description |
 | :--- | :--- |
+| **[🧭 Plain-English User Flow & PPT Kit](./USER_FLOW.md)** | Non-crypto presentation guide, master PPT architecture diagrams, plain-English translations, and 4 role-based user journeys. |
 | **[📊 Technical Comparison & Rationale](./COMPARISON_AND_EXPERIMENTS.md)** | Deep-dive EVM vs. Solana comparison, engineering rationale for all chosen technologies, and 8 verified empirical benchmarks. |
 | **[🌍 UN SDG Alignment](./SDG_ALIGNMENT.md)** | Deep dive into how Arthasetu advances **SDG 16 (Peace, Justice & Strong Institutions)**, **SDG 9 (Innovation & Infrastructure)**, **SDG 13 (Climate Action)**, **SDG 10 (Reduced Inequalities)**, and **SDG 17 (Partnerships)**. |
 | **[🏛️ System Architecture](./ARCHITECTURE.md)** | Complete smart contract architecture, Solana PDA account map, governance timelock loop, and Pinata IPFS schemas. |
