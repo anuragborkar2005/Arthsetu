@@ -24,21 +24,30 @@ sequenceDiagram
     autonumber
     actor Creator as 🧑‍💻 Campaign Creator (Browser)
     participant WebCrypto as 🔐 WebCrypto / Merkle Engine
-    participant Redactor as 🛡️ Adversarial Defense & Redactor v3
+    participant Presidio as 🤖 Microsoft Presidio Sidecar (NLP)
+    participant Redactor as 🛡️ Web3 Native Redactor & Adversarial Sanitizer
     participant AI as 🧠 Gemini 1.5 Flash (Stateless) / Local Heuristic
-    participant Pinata as 📦 Pinata IPFS Cloud
+    participant Pinata as 📦 Pinata IPFS v3 Files API
     participant Solana as ⛓️ Solana SVM (Anchor)
 
-    Creator->>WebCrypto: Compute SHA-256 Hashes of Supporting Documents
-    WebCrypto-->>Creator: Returns Document Hashes & Canonical Merkle Root (32-byte)
+    Creator->>Creator: 1. Input Campaign Title, Tagline, & Funding Goal
+    Creator->>Creator: 2. Author Campaign Story & Markdown Specifications
+    Creator->>WebCrypto: 3. Upload Supporting Documents & Compute SHA-256 Hashes
+    WebCrypto-->>Creator: Returns Lexicographically Sorted Merkle Root (32-byte)
 
-    Creator->>Redactor: Extract In-Memory Text Buffers
-    Redactor->>Redactor: 1. Strip Zero-Width Unicode & Neutralize Comment Injections
-    Redactor->>Redactor: 2. BIP-39 2,048-Wordlist Dictionary Verification & Base58 Check
-    Redactor->>Redactor: 3. Categorize Tabular Budget Items (Dev, Security, Infra, Ops)
+    Creator->>Redactor: Extract In-Memory Story & Document Buffers
+    Redactor->>Redactor: Strip Zero-Width Unicode & Neutralize Comment Injections
+
+    opt Presidio NLP Available
+        Redactor->>Presidio: POST /analyze & /anonymize (spaCy Named Entities)
+        Presidio-->>Redactor: De-identifies PERSON, LOCATION, ORGANIZATION, PAN, SSN
+    end
+
+    Redactor->>Redactor: BIP-39 2,048-Word Dictionary Verification & Solana/EVM Key Redaction
+    Redactor->>Redactor: Categorize Tabular Budget Items (Dev, Security, Infra, Ops)
 
     alt Air-Gapped Local Mode
-        Creator->>Creator: 100% In-Memory Stylometrics & Domain Ontologies (0 Outbound Requests)
+        Creator->>Creator: 100% In-Memory Stylometrics & Domain Jaccard Overlap (0 Outbound Requests)
     else Zero-Retention Cloud Mode
         Redactor->>AI: Send Sanitized Text + Merkle Root (Cache-Control: no-store)
         AI->>AI: Ephemeral Cross-Examination of Story vs. Whitepaper & Budget
@@ -46,7 +55,7 @@ sequenceDiagram
     end
 
     Creator->>WebCrypto: Compute Canonical Audit Binding Hash (0x...)
-    Creator->>Pinata: Pin Metadata JSON & Document Artifacts to IPFS (CIDv1)
+    Creator->>Pinata: Pin Metadata JSON & Document Artifacts (POST https://uploads.pinata.cloud/v3/files)
     Creator->>Solana: create_campaign(metadata_cid, trust_score, verifier)
     Solana-->>Solana: Initializes Campaign Escrow PDA with Immutable Trust Score
 ```
@@ -124,19 +133,29 @@ Submissions are pre-processed by [`app/lib/adversarial-defense.ts`](file:///home
 
 ---
 
-## 4. Privacy Redactor v3 with BIP-39 Dictionary Verification
+## 4. Microsoft Presidio NLP & Web3 Privacy Redactor
 
-The privacy engine enforces in-memory sanitization:
+Arthasetu implements a **hybrid dual-layer de-identification pipeline**:
 
-### 4.1 BIP-39 Exact Dictionary Verification
-Rather than using generic regexes that produce false positives on normal sentences, candidate 12/18/24-word seed phrases are verified against the official **2,048-word BIP-39 English wordlist**:
+```mermaid
+flowchart LR
+    A["Raw Story & Docs"] --> B["Tier 2: Microsoft Presidio Service\n(spaCy NER: PERSON, LOCATION, ORG, PAN, SSN)"]
+    B --> C["Tier 1: Web3 Native Crypto Recognizers\n(BIP-39 Exact Wordlist, Solana Base58 Keys, EVM Keys)"]
+    C --> D["Sanitized Text Stream"]
+```
 
-$$\text{isValidBip39}(\text{phrase}) \iff \forall w \in \text{words}(\text{phrase}), w \in \mathcal{D}_{\text{BIP-39}} \land |\text{words}| \in \{12, 18, 24\}$$
+### 4.1 Microsoft Presidio Named Entity Recognition (NER)
+When Presidio sidecars are active (`docker-compose.presidio.yml`), text is routed to `presidio-analyzer` and `presidio-anonymizer`:
+* **Personal Names**: Detects and redacts person names (`[PERSON_REDACTED]`).
+* **Locations**: Detects cities, states, addresses, and physical coordinates (`[LOCATION_REDACTED]`).
+* **Organizations**: Detects corporate names and third-party affiliations (`[ORGANIZATION_REDACTED]`).
+* **National & Tax Identifiers**: Detects Indian PAN cards (`IN_PAN`), US SSNs (`US_SSN`), and international passport formats.
 
-### 4.2 Solana Base58 & EVM Key Redactor
-* **Solana Private Keys**: Validates 80–90 character Base58 strings (ensuring no `0`, `O`, `I`, `l` characters) and redacts to `[SOL_PRIVKEY_REDACTED]`.
-* **EVM Private Keys**: Redacts 64-character hexadecimal keys to `[HEX_PRIVKEY_REDACTED]`.
-* **Financial & Identity Identifiers**: Redacts Indian PAN cards (`[A-Z]{5}[0-9]{4}[A-Z]`), SSNs, IBANs, Credit Cards, Emails, and Phone Numbers.
+### 4.2 Web3-Native Privacy Redaction (Zero Dependencies)
+* **BIP-39 Exact Wordlist Verification**: Validates 12/18/24-word sequences against the official 2,048-word BIP-39 dictionary before redacting (`[BIP39_SEED_PHRASE_REDACTED]`).
+* **Solana Base58 Private Keys**: Identifies 80–90 char Base58 keys and redacts to `[SOL_PRIVKEY_REDACTED]`.
+* **EVM Hex Private Keys**: Identifies 64-hex private keys and redacts to `[HEX_PRIVKEY_REDACTED]`.
+* **Instant Fallback**: If Presidio is unconfigured or unreachable, the Tier 1 TypeScript engine executes in `<1ms` with zero external calls.
 
 ---
 
@@ -161,48 +180,59 @@ The budget validator ([`app/lib/budget-validator.ts`](file:///home/codex/project
 
 ## 6. Pairwise Multi-Document Consistency Matrix
 
-The AI auditor cross-examines multiple uploaded documents against each other:
+The AI auditor cross-examines the campaign story and uploaded documents using substantive Jaccard term overlap:
 
 | Pair Examined | Checks Performed | Status Flag |
 | :--- | :--- | :--- |
-| **Whitepaper ↔ Story** | Verifies technical runtime (Solana vs EVM), architecture claims, and deliverables. | `Consistent` / `Minor Divergence` / `Contradiction` |
-| **Whitepaper ↔ Budget** | Asserts that deliverables mentioned in the spec (e.g. security audit, RPC infrastructure) are accounted for in the budget. | `Consistent` / `Minor Divergence` |
-| **Budget ↔ Story** | Checks that milestone release amounts match itemized budget line items. | `Consistent` / `Contradiction` |
+| **Story ↔ Technical Spec / Whitepaper** | Verifies blockchain runtime (Solana vs EVM), architecture claims, and deliverables. | `Consistent` / `Minor Divergence` / `Contradiction` |
+| **Story ↔ Budget Sheet** | Asserts that deliverables mentioned in the story are itemized with matching USDC sums. | `Consistent` / `Minor Divergence` |
+| **Whitepaper ↔ Budget Sheet** | Checks that security audits and infrastructure costs are adequately provisioned. | `Consistent` / `Contradiction` |
 
 ---
 
-## 7. 5-Pillar Trust Scoring Mathematical Model
+## 7. Multi-Factor Trust Scoring & Anti-Fraud Guardrails
 
-The composite on-chain **Trust Score ($T \in [0, 100]$)** is calculated using a weighted formula:
+The composite on-chain **Trust Score ($T \in [0, 100]$)** is calculated using a strict multi-factor mathematical synthesis:
 
-$$T = \text{round}\Big(0.25 \cdot A_{\text{auth}} + 0.25 \cdot A_{\text{align}} + 0.20 \cdot F_{\text{feas}} + 0.20 \cdot V_{\text{verif}} + 0.10 \cdot S_{\text{ai}}\Big)$$
+$$T = \text{round}\Big(0.25 \cdot A_{\text{auth}} + 0.35 \cdot A_{\text{align}} + 0.20 \cdot F_{\text{feas}} + 0.10 \cdot V_{\text{verif}} + 0.10 \cdot S_{\text{ai}}\Big)$$
 
 Where:
 * $A_{\text{auth}}$ = **Document Authenticity Score (0–100)**: Document formatting, Merkle consistency, metadata validity.
-* $A_{\text{align}}$ = **Story vs. Document Alignment Score (0–100)**: Concordance across domain ontologies (Solana DeFi, AI DePIN, Public Goods).
+* $A_{\text{align}}$ = **Story vs. Document Alignment Score (0–100)**: Substantive term overlap and domain ontology corroboration.
 * $F_{\text{feas}}$ = **Budget Feasibility Score (0–100)**: Mathematical balance of tranches and category allocations.
 * $V_{\text{verif}}$ = **Deliverable Verifiability Score (0–100)**: Objectivity of milestone proof criteria (Git commits, LiteSVM test suites).
 * $S_{\text{ai}}$ = **Human Linguistic Depth Score (0–100)**: Derived from Type-Token Ratio (TTR) and sentence burstiness variance.
 
+### 7.1 Strict Anti-Fraud Bottleneck Guardrails
+If an attached document is wrong, irrelevant, or fails to corroborate the campaign story (e.g. uploading a personal resume for a flood relief campaign):
+* $A_{\text{align}}$ is penalized to $\le 20\%$
+* $A_{\text{auth}}$ is penalized to $\le 35\%$
+* **Overall Trust Score is capped at $\le 25/100$ (High Risk)**, preventing fraudulent or mismatched submissions from receiving moderate ratings.
+
 ---
 
-## 8. Pinata Cloud IPFS Integration & Multi-Gateway Resolution
+## 8. Pinata v3 Files API & Dedicated Gateway Resolution
 
-### 8.1 Dedicated & Multi-Gateway Resolution
-Metadata and evidence proofs are resolved with automated multi-gateway fallback:
-1. `https://gateway.pinata.cloud/ipfs/` (Dedicated Pinata Gateway)
-2. `https://ipfs.io/ipfs/`
-3. `https://cloudflare-ipfs.com/ipfs/`
-4. `https://dweb.link/ipfs/`
+### 8.1 Modern Pinata v3 Files Endpoint
+Files and JSON metadata payloads are pinned using the **Pinata v3 Files API**:
+* **Endpoint**: `POST https://uploads.pinata.cloud/v3/files`
+* **Headers**: `Authorization: Bearer <PINATA_JWT>`
+* **Payload**: Multipart form stream containing `file`, `name`, `network: "public"`, and `cid_version: "v1"`.
+* **Response**: Reads `data.cid` directly with sub-100ms response times.
 
-### 8.2 Deterministic Offline CID Fallback
-If no Pinata credentials are provided, the dApp computes deterministic SHA-256 base32 CIDv1 identifiers in the browser.
+### 8.2 Dedicated Gateway Resolution
+Content is resolved instantly via dedicated gateways:
+* Primary: `https://bronze-changing-silverfish-206.mypinata.cloud/ipfs/<CID>`
+* Fallback: `https://gateway.pinata.cloud/ipfs/<CID>`, `https://ipfs.io/ipfs/<CID>`
+
+### 8.3 Deterministic In-Memory Fallback
+If Pinata is unreachable or unconfigured, the dApp computes deterministic SHA-256 base32 IPFS v1 CID identifiers directly in browser memory.
 
 ---
 
 ## 9. Automated Verification & Test Suite
 
-The engine includes 32 automated tests in [`scripts/test-privacy-ai.ts`](file:///home/codex/projects/blockchain/Arthasetu/scripts/test-privacy-ai.ts):
+The test suite in [`scripts/test-privacy-ai.ts`](file:///home/codex/projects/blockchain/Arthasetu/scripts/test-privacy-ai.ts) executes **43 automated unit and regression tests**:
 
 ```bash
 npx tsx scripts/test-privacy-ai.ts
@@ -237,12 +267,21 @@ npx tsx scripts/test-privacy-ai.ts
   ✓ PASS: Redacted PAN card
   ✓ PASS: Accurately recorded 6 redacted tokens (got 6)
 
+[3b] Testing Microsoft Presidio Hybrid Engine & Entity Anonymization...
+  ✓ PASS: Presidio entity registry covers PERSON, LOCATION, ORGANIZATION, and IN_PAN
+  ✓ PASS: Hybrid engine redacts BIP-39 seed phrase
+  ✓ PASS: Hybrid engine redacts Solana Base58 private key
+  ✓ PASS: Hybrid engine redacts contact email
+  ✓ PASS: Hybrid engine reported active engine (builtin_ts)
+
 [4] Testing Quantitative Budget Math & Category Allocations...
   ✓ PASS: Budget math is perfectly balanced (100% matched)
   ✓ PASS: Variance percentage is 0%
   ✓ PASS: Categorized line items into Dev, Security, Infra, Ops
   ✓ PASS: Correctly flags unbalanced milestone sum
   ✓ PASS: Provides actionable milestone allocation warning
+  ✓ PASS: Resume upload without budget document is balanced with milestones
+  ✓ PASS: No false positive budget variance warnings on resume upload
 
 [5] Testing Stylometrics & Multi-Document Consistency Matrix...
   ✓ PASS: Accurately calculates high vocabulary richness (TTR)
@@ -251,14 +290,18 @@ npx tsx scripts/test-privacy-ai.ts
   ✓ PASS: Corroborated technical and budget specs are marked Consistent
 
 [6] Testing End-to-End Fallback Diligence Engine...
-  ✓ PASS: Generated high trust score for corroborated campaign (97/100)
+  ✓ PASS: Generated high trust score for corroborated campaign (94/100)
   ✓ PASS: Generated 32-byte Merkle root
   ✓ PASS: Generated canonical audit hash
   ✓ PASS: Includes cross-document consistency matrix
   ✓ PASS: Confirmed balanced budget analysis
+  ✓ PASS: Correctly flags low story-document alignment for resume on flood relief (20%)
+  ✓ PASS: Explicitly reports Low Story-Document Alignment discrepancy for uncorroborated document
+  ✓ PASS: Correctly heavily penalizes composite Trust Score when Story-Doc alignment fails (25/100, High Risk)
+  ✓ PASS: Flags low alignment campaign as High Risk (never High or Exceptional)
 
 =======================================================
-  TEST RESULTS: 32 / 32 PASSED (100%)
+  TEST RESULTS: 43 / 43 PASSED (100%)
 =======================================================
 ```
 

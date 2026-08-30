@@ -11,14 +11,14 @@ Built with [Anchor](https://www.anchor-lang.com/) (Rust), Next.js 16 (React 19),
 ```mermaid
 flowchart TD
     subgraph S1["1. Creator Studio & Privacy AI (/campaigns/new)"]
-        A1["Upload Supporting Documents"] --> A2["Client-Side SHA-256 & Merkle Tree Root"]
-        A2 --> A3["Adversarial Defense & Zero-Width Stripping"]
-        A3 --> A4["BIP-39 & Base58 PII Redaction v3"]
-        A4 --> A5["Pairwise Multi-Doc Consistency Matrix"]
+        A1["1. Project Basics (Title, Tagline, Funding Target)"] --> A2["2. Campaign Story & Markdown Specifications"]
+        A2 --> A3["3. Upload Supporting Documents & Verification"]
+        A3 --> A4["Microsoft Presidio NLP (PERSON, LOCATION, PAN, SSN) + Web3 BIP-39 & Keys Redaction"]
+        A4 --> A5["Pairwise Story-Document Jaccard Consistency Matrix"]
         A5 --> A6["Quantitative Budget Math & Category Allocation"]
-        A6 --> A7["Generate Trust Score & Canonical Audit Hash"]
-        A7 --> A8["Pin to Pinata IPFS (CIDv1)"]
-        A8 --> A9["create_campaign on Solana<br/>(is_live = false, trust_score)"]
+        A6 --> A7["Generate Trust Score (0-100) & Canonical SHA-256 Audit Hash"]
+        A7 --> A8["Pin to Pinata IPFS v3 (CIDv1 via dedicated gateway)"]
+        A8 --> A9["create_campaign on Solana<br/>(is_live = false, trust_score, verifier)"]
     end
 
     subgraph S2["2. DAO Review & Go-Live Governance (/governance)"]
@@ -35,7 +35,7 @@ flowchart TD
     end
 
     subgraph S4["4. Transparent Milestone Release (/verifier)"]
-        D1["Creator Packages Proofs (Git, Demos, Invoices)"] --> D2["Pin Evidence to Pinata IPFS"]
+        D1["Creator Packages Proofs (Git, Demos, Invoices)"] --> D2["Pin Evidence to Pinata IPFS v3"]
         D2 --> D3["propose_milestone<br/>(Dual-Signed: Creator + Verifier)"]
         D3 --> D4["DAO ReleaseMilestone Vote & Timelock"]
         D4 --> D5["release_milestone<br/>(Escrow Pays Creator & PDA Closes)"]
@@ -57,21 +57,24 @@ flowchart TD
 
 ## 🌟 Key Capabilities
 
-### 🛡️ Hardened Privacy-Focused AI & Diligence Engine v3
-* **Adversarial Input Defense**: Strips zero-width and invisible unicode characters (`\u200B`, `\uFEFF`, etc.), removes hidden HTML/Markdown comment injections (`<!-- ignore instructions ... -->`), and detects keyword stuffing repetition anomalies.
-* **Privacy Redactor v3 with BIP-39 Verification**: Validates potential 12/24-word seed phrases against the canonical 2,048-word BIP-39 English dictionary before redacting (preventing false positives). Verifies Solana Base58 private keys, EVM 64-hex keys, JWT tokens, Indian PAN cards, SSNs, IBANs, Credit Cards, Emails, and Phone Numbers in-memory.
+### 🛡️ Hybrid Privacy-Focused AI & Diligence Engine
+* **Microsoft Presidio NLP De-Identification**: Integrated with `presidio-analyzer` (spaCy Named Entity Recognition for `PERSON`, `LOCATION`, `ORGANIZATION`, `IN_PAN`, `US_SSN`, `EMAIL_ADDRESS`, `PHONE_NUMBER`) and `presidio-anonymizer`, with local Docker sidecar support.
+* **Web3-Native Privacy Redaction**: Validates 12/18/24-word seed phrases against the canonical 2,048-word BIP-39 English dictionary before redacting. Verifies Solana Base58 private keys, EVM 64-hex keys, and API secrets in-memory with automatic Tier 1 zero-dependency fallback.
+* **Rigorous Multi-Factor Trust Score Synthesizer**: Computes on-chain Trust Scores (0–100) using a strict mathematical formulation:
+  $$\text{Trust Score} = 0.25(\text{Auth}) + 0.35(\text{Align}) + 0.20(\text{Feas}) + 0.10(\text{Verif}) + 0.10(\text{AI})$$
+  * **Strict Anti-Fraud Ceilings**: If attached documents fail to substantiate the campaign story (e.g. uploading a resume for a flood relief campaign), `storyDocumentAlignmentScore` drops to $\le 20\%$, capping the overall Trust Score at $\le 25/100$ (**High Risk**).
 * **Cryptographic Document Merkle Trees**: Computes a deterministic 32-byte SHA-256 Merkle root across all uploaded documents, independent of upload order.
 * **Canonical SHA-256 Audit Binding Hash**: Produces a tamper-proof digest (`0x...`) binding creator pubkey, document Merkle root, funding goal, Trust Score, and sub-scores.
 * **Quantitative Budget & Category Allocation Engine**: Parses tabular cost entries into **Engineering**, **Security & Audits**, **Infrastructure**, **Operations/Legal**, and **Marketing**, computing percentage distributions and flagging category imbalances.
-* **Pairwise Multi-Document Consistency Matrix**: Compares multiple attached files against each other (e.g., Whitepaper vs. Budget vs. Story) to detect runtime contradictions or unbudgeted deliverables.
+* **Pairwise Multi-Document Consistency Matrix**: Computes substantive Jaccard term overlap between the campaign story and uploaded files to detect discrepancies or unbudgeted deliverables.
 * **Dual Privacy Modes**:
   * **100% Air-Gapped Local Mode**: Performs all diligence client-side using deterministic stylometrics, domain ontologies, and heuristic rules with 0 outbound network requests.
   * **Stateless Zero-Retention Cloud Mode**: Calls ephemeral LLM auditing with strict `Cache-Control: no-store` headers and immediate in-memory purging.
 
-### 📌 Pinata Cloud IPFS & Multi-Gateway Resolution
-* **Automatic Document Pinning**: Whitepapers, pitch decks, budget sheets, and deliverable evidence files are pinned to Pinata IPFS.
-* **Multi-Gateway Fallback**: Resolves content seamlessly across Dedicated Pinata Gateways, Cloudflare IPFS, `ipfs.io`, and `dweb.link`.
-* **Deterministic Offline Engine**: Falls back to deterministic SHA-256 base32 CIDv1 addressing if no Pinata API keys are supplied.
+### 📌 Pinata v3 Files API & Dedicated Gateway Resolution
+* **Pinata v3 Files API**: Uses modern `https://uploads.pinata.cloud/v3/files` multipart stream for instant uploads (`<100ms`).
+* **Dedicated Gateway Resolution**: Resolves IPFS hashes directly via custom dedicated Pinata gateways (e.g. `https://bronze-changing-silverfish-206.mypinata.cloud/ipfs/`).
+* **Deterministic Offline Engine**: In-memory SHA-256 base32 IPFS v1 CID generator fallback when operating offline.
 
 ### ⚡ Performance & Image LCP Optimization
 * **Next.js Image Architecture**: All campaign cards, exploration grids, creator previews, and hero banners use `<Image />` with `priority` on above-the-fold elements and responsive `sizes` to maximize Largest Contentful Paint (LCP) performance.
@@ -79,7 +82,7 @@ flowchart TD
 
 ### 📝 Rich GitHub Flavored Markdown (GFM)
 * Full markdown story rendering with custom typography, code blocks, task lists (`- [x]`), blockquotes, and tables.
-* Live **"Write (Markdown)"** vs. **"Preview"** tab toggle in the Campaign Creation Studio.
+* Live **"Write (Markdown)"** vs. **"Preview"** tab toggle in Step 2 of the Campaign Creation Studio.
 * Public **Deliverable Proof Inspector** modal rendering verified test reports and evidence links in rich markdown.
 
 ---
@@ -104,6 +107,7 @@ All comprehensive architecture, security, operational, and technical guides are 
 
 | Guide | Description |
 | :--- | :--- |
+| **[📊 Technical Comparison & Rationale](docs/COMPARISON_AND_EXPERIMENTS.md)** | Full EVM vs. Solana architectural comparison, engineering rationale for all chosen subsystems, and 8 verified empirical benchmarks. |
 | **[🌍 UN SDG Alignment](docs/SDG_ALIGNMENT.md)** | Deep dive into how Arthasetu advances UN SDGs 16, 9, 13, 10, and 17. |
 | **[🏛️ System Architecture](docs/ARCHITECTURE.md)** | Full smart contract architecture, Solana PDA account map, and Pinata IPFS schemas. |
 | **[📖 Operational Runbook](docs/RUNBOOK.md)** | End-to-end operational guide, local validator setup, and deployment walkthrough. |
@@ -139,7 +143,7 @@ All comprehensive architecture, security, operational, and technical guides are 
 │   ├── Architecture.md       # Full smart contract architecture, state PDAs, trust model
 │   └── Security.md           # Security audit findings & resolution log
 ├── scripts/
-│   └── test-privacy-ai.ts    # 32-test automated unit and regression test suite for Privacy AI
+│   └── test-privacy-ai.ts    # 43-test automated unit and regression test suite for Privacy AI & Presidio
 ├── codama.json               # Codama client generation config
 └── package.json
 ```

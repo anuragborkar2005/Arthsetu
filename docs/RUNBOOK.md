@@ -80,12 +80,22 @@ cp .env.example .env.local
 ```
 
 ```env
-# Pinata IPFS Credentials
+# Pinata IPFS Credentials (v3 Files API)
 PINATA_JWT="your_pinata_jwt_token_here"
-NEXT_PUBLIC_PINATA_GATEWAY="https://gateway.pinata.cloud/ipfs/"
+NEXT_PUBLIC_PINATA_GATEWAY="https://bronze-changing-silverfish-206.mypinata.cloud/"
 
 # Google Gemini API Key for Privacy-Preserving AI Trust Scoring
 GEMINI_API_KEY="AIzaSy..."
+
+# (Optional) Microsoft Presidio NLP De-Identification Services
+# PRESIDIO_ANALYZER_URL="http://localhost:5001"
+# PRESIDIO_ANONYMIZER_URL="http://localhost:5002"
+```
+
+### 2.3 Optional: Start Microsoft Presidio NLP Sidecar
+To enable neural Named Entity Recognition (NER for names, physical locations, and national IDs) locally:
+```bash
+docker compose -f docker-compose.presidio.yml up -d
 ```
 
 ---
@@ -109,7 +119,10 @@ anchor deploy --provider.cluster devnet
 # 1. Generate TypeScript Codama client
 npx @codama/cli run
 
-# 2. Start Next.js development server
+# 2. Run Privacy AI & Diligence Test Suite (43 automated tests)
+npx tsx scripts/test-privacy-ai.ts
+
+# 3. Start Next.js development server
 npm install --legacy-peer-deps
 npm run dev
 ```
@@ -124,14 +137,16 @@ npm run dev
 3. Mint test USDC tokens from the Test Faucet tab.
 
 ### Phase 2: Campaign Creation & Diligence (`/campaigns/new`)
-1. Enter Campaign branding, category, and links.
-2. Upload supporting documents (Whitepaper, Budget, FCRA registration); files are hashed client-side with SHA-256 and pinned to Pinata IPFS.
-3. Run Privacy AI Diligence to generate on-chain Trust Score (0–100) and Story vs. Document Alignment findings.
-4. Write the campaign story in rich GitHub Flavored Markdown (GFM) with live preview.
-5. Set designated verifier address and sign `create_campaign` on Solana (`is_live = false`).
+1. **Step 1 (Basics)**: Enter Campaign title, category, funding target in USDC, and social links.
+2. **Step 2 (Story)**: Author the campaign narrative and technical specification in rich GitHub Flavored Markdown (GFM) with live preview.
+3. **Step 3 (Documents & Privacy AI)**:
+   - Upload supporting documents (Whitepaper, Budget, FCRA registration); files are hashed with client-side SHA-256 and pinned via Pinata v3 (`https://uploads.pinata.cloud/v3/files`).
+   - Run Privacy AI Diligence: Applies **Microsoft Presidio NLP** + **Web3 BIP-39/key redactor**, calculates the 5-factor **Trust Score (0–100)**, builds the **Document Merkle Tree**, and evaluates substantive Story-Document alignment.
+4. **Step 4 (Milestones)**: Define deliverable tranches and assign the designated verifier pubkey.
+5. **Step 5 (Review & Sign)**: Sign `create_campaign` on Solana (`is_live = false`).
 
 ### Phase 3: DAO Member Review & Go-Live Governance (`/governance`)
-1. Review document hashes and AI audit findings in `/verifier` or `/campaigns/[id]`.
+1. Review document hashes, Merkle root, and AI audit findings in `/verifier` or `/campaigns/[id]`.
 2. Sponsor an on-chain `ApproveCampaign` proposal.
 3. Token holders vote with tokens locked in `["vote_escrow", voter]` ATAs.
 4. After timelock delay passes, permissionless trigger `approve_and_go_live` executes.
@@ -141,7 +156,7 @@ npm run dev
 2. Program initializes on-chain `DonationRecord` tracking lifetime contributions.
 
 ### Phase 5: Milestone Deliverable Verification & Release (`/verifier`)
-1. Creator packages deliverable evidence (invoices, GPS logs, photos) into Pinata IPFS (`proof_cid`).
+1. Creator packages deliverable evidence (invoices, GPS logs, photos) into Pinata IPFS v3 (`proof_cid`).
 2. Designated Verifier audits the deliverables and co-signs `propose_milestone` on Solana.
 3. DAO members vote on `ReleaseMilestone`. Timelocked trigger pays the creator and closes the milestone PDA.
 4. Backers inspect deliverables in the rich Markdown Deliverable Proof Inspector modal.

@@ -100,17 +100,27 @@ cp .env.example .env.local
 ```
 
 ```env
-# Pinata IPFS Credentials
+# Pinata IPFS Credentials (v3 Files API)
 # Create an account at https://app.pinata.cloud/ -> API Keys -> Create Key
 PINATA_JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-NEXT_PUBLIC_PINATA_GATEWAY="https://gateway.pinata.cloud/ipfs/"
+NEXT_PUBLIC_PINATA_GATEWAY="https://bronze-changing-silverfish-206.mypinata.cloud/"
 
 # Google Gemini API Key for Privacy-Preserving AI Trust Scoring
 # Get a free API key at https://aistudio.google.com/
 GEMINI_API_KEY="AIzaSy..."
+
+# (Optional) Microsoft Presidio NLP De-Identification Services
+# PRESIDIO_ANALYZER_URL="http://localhost:5001"
+# PRESIDIO_ANONYMIZER_URL="http://localhost:5002"
 ```
 
-*(Note: If no API keys are provided, the protocol automatically operates in deterministic offline mode using browser WebCrypto SHA-256 and fallback heuristic scoring).*
+### 2.3 Optional: Start Microsoft Presidio NLP Sidecar
+To enable neural Named Entity Recognition (NER for names, physical locations, and national IDs) locally:
+```bash
+docker compose -f docker-compose.presidio.yml up -d
+```
+
+*(Note: If no API keys or Presidio sidecars are running, the protocol automatically operates in 100% deterministic offline mode using browser WebCrypto SHA-256 and pure TypeScript Tier 1 redaction).*
 
 ---
 
@@ -189,10 +199,14 @@ Open your browser at **[http://localhost:3000](http://localhost:3000)**.
 2. **Step 1 · Identity & Branding**:
    - Enter Campaign Title, Tagline, Category (`Technology`, `DeFi`, `Climate`, etc.).
    - Provide banner image URL and project links (GitHub, Website, Twitter).
-3. **Step 2 · Docs & Privacy AI Audit**:
+3. **Step 2 · Story & Milestone Roadmap**:
+   - Write or refine the project story and technical architecture using rich **GitHub Flavored Markdown (GFM)**.
+   - Switch between **"Write (Markdown)"** and **"Preview"** tabs to verify formatting.
+   - Configure planned milestone release tranches (supports 1 to N milestones).
+4. **Step 3 · Docs & Privacy AI Audit**:
    - Drop supporting documents (Whitepaper, Budget Sheet, Pitch Deck, Tech Specs).
    - Each file is automatically uploaded and pinned to **Pinata Cloud IPFS** with its **SHA-256 checksum** displayed.
-   - Click **"Run AI Audit & Scoring"** to execute the zero-retention Privacy AI Engine.
+   - Click **"Run AI Audit & Scoring"** to execute the zero-retention Privacy AI Engine, cross-examining your story from Step 2 against uploaded documents.
    - Inspect the **Trust Score (0–100)** and 5 sub-scores:
      - *Authenticity Score*
      - *Story vs. Document Alignment Score*
@@ -201,11 +215,6 @@ Open your browser at **[http://localhost:3000](http://localhost:3000)**.
      - *AI Content & Spam Risk*
    - Review the **Story vs. Document Cross-Examination** panel for verified alignments and discrepancy alerts.
    - (Optional) Click **"Apply Milestones"** to auto-populate milestone tranches suggested by AI.
-4. **Step 3 · Story & Milestone Roadmap**:
-   - Write or refine the project story using rich **GitHub Flavored Markdown (GFM)**.
-   - Switch between **"Write (Markdown)"** and **"Preview"** tabs to verify formatting.
-   - Configure planned milestone release tranches (supports 1 to N milestones).
-   - When advancing to Step 4, the system automatically re-evaluates the updated story against your uploaded documents.
 5. **Step 4 · Funding Target & Designated Verifier**:
    - Specify target funding in USDC (e.g. `25,000 USDC`).
    - The AI Trust Score is automatically locked into the on-chain submission payload.
