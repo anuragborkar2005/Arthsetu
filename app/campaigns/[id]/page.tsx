@@ -520,9 +520,16 @@ export default function CampaignDetailPage({
                       <span className="font-semibold text-foreground flex items-center gap-1.5">
                         <ShieldCheck className="h-4 w-4 text-primary" /> Cryptographic Integrity &amp; Zero-Retention Proofs
                       </span>
-                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary capitalize">
-                        {aiAudit.privacyMode === "local_air_gapped" ? "100% Air-Gapped Local" : "Stateless Zero-Retention"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {aiAudit.privacyEngine === "presidio_ner" && (
+                          <Badge variant="outline" className="text-[10px] bg-blue-500/10 border-blue-500/30 text-blue-400 font-semibold">
+                            Microsoft Presidio NLP
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary capitalize">
+                          {aiAudit.privacyMode === "local_air_gapped" ? "100% Air-Gapped Local" : "Stateless Zero-Retention"}
+                        </Badge>
+                      </div>
                     </div>
 
                     <div className="grid gap-2 sm:grid-cols-2 text-[11px] font-mono">
@@ -562,7 +569,14 @@ export default function CampaignDetailPage({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[11px] text-muted-foreground">
-                      <span>🛡️ <strong>{aiAudit.redactionsCount?.totalRedacted ?? 0}</strong> sensitive tokens redacted in-memory</span>
+                      <span>
+                        🛡️ <strong>{aiAudit.redactionsCount?.totalRedacted ?? 0}</strong> sensitive tokens redacted in-memory
+                        {aiAudit.redactionsCount && (
+                          <span className="text-[10px] text-muted-foreground ml-1">
+                            ({aiAudit.redactionsCount.keysAndSecrets} keys, {aiAudit.redactionsCount.namesAndLocations ?? 0} names/locs, {aiAudit.redactionsCount.emailsAndPhones} contacts)
+                          </span>
+                        )}
+                      </span>
                       <span>·</span>
                       <span>📊 Linguistic Human Depth: <strong>{aiAudit.stylometricMetrics?.burstinessScore ?? 75}/100</strong></span>
                       <span>·</span>

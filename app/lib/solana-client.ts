@@ -1,4 +1,4 @@
-import { createEmptyClient } from "@solana/kit";
+import { createClient } from "@solana/kit";
 import { rpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
 
 export type ClusterMoniker = "devnet" | "testnet" | "mainnet" | "localnet";
@@ -35,7 +35,7 @@ export function getClusterWsConfig(cluster: ClusterMoniker) {
 export function createSolanaClient(cluster: ClusterMoniker) {
   const url = CLUSTER_URLS[cluster];
   const wsUrl = WS_URLS[cluster];
-  return createEmptyClient()
+  return createClient()
     .use(rpc(url, { url: wsUrl }))
     .use(rpcAirdrop());
 }

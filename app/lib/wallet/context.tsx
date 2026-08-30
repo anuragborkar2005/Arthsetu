@@ -44,17 +44,15 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const { cluster } = useCluster();
   const chain = `solana:${cluster}`;
 
-  const [connectors, setConnectors] = useState<WalletConnector[]>(() =>
-    typeof window === "undefined" ? [] : discoverWallets()
-  );
+  const [connectors, setConnectors] = useState<WalletConnector[]>([]);
   const [session, setSession] = useState<WalletSession | undefined>();
   const [status, setStatus] = useState<WalletStatus>(
     WALLET_STATUS.DISCONNECTED
   );
   const [error, setError] = useState<unknown>();
-  const isReady = typeof window !== "undefined";
+  const [isReady, setIsReady] = useState(false);
 
-  const connectorsRef = useRef<WalletConnector[]>(connectors);
+  const connectorsRef = useRef<WalletConnector[]>([]);
   const autoConnectAttempted = useRef(false);
 
   const handleWalletsChanged = useCallback((updated: WalletConnector[]) => {
@@ -75,12 +73,17 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
+    setIsReady(true);
+    const initial = discoverWallets();
+    connectorsRef.current = initial;
+    setConnectors(initial);
+
     const unsubscribe = watchWallets(handleWalletsChanged);
 
     const lastId = localStorage.getItem(STORAGE_KEY);
     if (lastId && !autoConnectAttempted.current) {
       autoConnectAttempted.current = true;
-      const connector = connectorsRef.current.find((c) => c.id === lastId);
+      const connector = initial.find((c) => c.id === lastId);
       if (connector) {
         void runAutoConnect(connector);
       }

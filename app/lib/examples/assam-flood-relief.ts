@@ -193,10 +193,11 @@ Key urgent challenges:
     auditHash: "0x94f1c7e8a203b41de4567890abcdef1234567890abcdef1234567890abcdef12",
     redactionsCount: {
       keysAndSecrets: 0,
+      namesAndLocations: 1,
       emailsAndPhones: 2,
       financialAccounts: 1,
       nationalIds: 0,
-      totalRedacted: 3,
+      totalRedacted: 4,
     },
     adversarialDefense: {
       cleanedText: "",

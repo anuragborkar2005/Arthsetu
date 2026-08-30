@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -89,8 +89,8 @@ const SAMPLE_BANNERS = [
 
 const STEPS = [
   { id: 1, name: "Identity & Branding", desc: "Basic details & links" },
-  { id: 2, name: "Docs & Privacy AI Audit", desc: "Upload docs & Trust Score" },
-  { id: 3, name: "Story & Milestones", desc: "Roadmap & tranches" },
+  { id: 2, name: "Story & Milestones", desc: "Roadmap & tranches" },
+  { id: 3, name: "Docs & Privacy AI Audit", desc: "Upload docs & Trust Score" },
   { id: 4, name: "Funding & Verifier", desc: "Target & proof attester" },
   { id: 5, name: "Review & Launch", desc: "IPFS pin & Solana broadcast" },
 ];
@@ -132,15 +132,6 @@ function CampaignCreatorWizard() {
   const { data: daoConfig } = useDaoConfig();
   const { run, isSending } = useFydaoTx();
 
-  const initialDraft = (() => {
-    try {
-      const draft = localStorage.getItem(DRAFT_KEY);
-      return draft ? JSON.parse(draft) : {};
-    } catch {
-      return {};
-    }
-  })();
-
   const [step, setStep] = useState(1);
   const [txSignature, setTxSignature] = useState<string | null>(null);
   const [createdCampaignId, setCreatedCampaignId] = useState<bigint | null>(
@@ -149,78 +140,89 @@ function CampaignCreatorWizard() {
   const [pinnedCid, setPinnedCid] = useState<string | null>(null);
 
   // Step 1: Identity & Branding
-  const [title, setTitle] = useState(initialDraft.title || "");
-  const [tagline, setTagline] = useState(initialDraft.tagline || "");
-  const [category, setCategory] = useState<string>(
-    initialDraft.category || "technology"
-  );
-  const [logoUrl, setLogoUrl] = useState(initialDraft.logoUrl || "");
-  const [bannerUrl, setBannerUrl] = useState(
-    initialDraft.bannerUrl || SAMPLE_BANNERS[0]
-  );
-  const [websiteUrl, setWebsiteUrl] = useState(initialDraft.websiteUrl || "");
-  const [twitterUrl, setTwitterUrl] = useState(initialDraft.twitterUrl || "");
-  const [githubUrl, setGithubUrl] = useState(initialDraft.githubUrl || "");
-  const [contactEmail, setContactEmail] = useState(
-    initialDraft.contactEmail || ""
-  );
+  const [title, setTitle] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [category, setCategory] = useState<string>("technology");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState(SAMPLE_BANNERS[0]);
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
 
-  // Step 2: Documents & Privacy AI Audit
-  const [documents, setDocuments] = useState<DocumentAttachment[]>(
-    initialDraft.documents || []
-  );
+  // Step 2: Story & Roadmap
+  const [description, setDescription] = useState(DEFAULT_STORY);
+  const [storyTab, setStoryTab] = useState<"write" | "preview">("write");
+  const [milestones, setMilestones] = useState<CampaignMilestonePlan[]>([
+    {
+      id: 0,
+      title: "Alpha Protocol & Architecture Verification",
+      description:
+        "Deploy core Solana programs to devnet with complete test coverage.",
+      targetAmountUsdc: "10000",
+      estimatedDurationDays: 30,
+      deliverableCriteria: [
+        "Devnet deployed program ID",
+        "Passed test suite",
+      ],
+    },
+    {
+      id: 1,
+      title: "Beta Launch & UI Release",
+      description:
+        "Public beta release on Solana with user onboarding and client SDK.",
+      targetAmountUsdc: "15000",
+      estimatedDurationDays: 45,
+      deliverableCriteria: ["Live web app URL", "Audit report"],
+    },
+  ]);
+
+  // Step 3: Documents & Privacy AI Audit
+  const [documents, setDocuments] = useState<DocumentAttachment[]>([]);
   const [isUploadingDocs, setIsUploadingDocs] = useState(false);
   const [isScanningAi, setIsScanningAi] = useState(false);
   const [forceLocalPrivacy, setForceLocalPrivacy] = useState(false);
-  const [aiAuditReport, setAiAuditReport] = useState<AiAuditReport | null>(
-    initialDraft.aiAuditReport || null
-  );
-
-  // Step 3: Story & Roadmap
-  const [description, setDescription] = useState(
-    initialDraft.description || DEFAULT_STORY
-  );
-  const [storyTab, setStoryTab] = useState<"write" | "preview">("write");
-  const [milestones, setMilestones] = useState<CampaignMilestonePlan[]>(
-    initialDraft.milestones && initialDraft.milestones.length > 0
-      ? initialDraft.milestones
-      : [
-          {
-            id: 0,
-            title: "Alpha Protocol & Architecture Verification",
-            description:
-              "Deploy core Solana programs to devnet with complete test coverage.",
-            targetAmountUsdc: "10000",
-            estimatedDurationDays: 30,
-            deliverableCriteria: [
-              "Devnet deployed program ID",
-              "Passed test suite",
-            ],
-          },
-          {
-            id: 1,
-            title: "Beta Launch & UI Release",
-            description:
-              "Public beta release on Solana with user onboarding and client SDK.",
-            targetAmountUsdc: "15000",
-            estimatedDurationDays: 45,
-            deliverableCriteria: ["Live web app URL", "Audit report"],
-          },
-        ]
-  );
+  const [aiAuditReport, setAiAuditReport] = useState<AiAuditReport | null>(null);
 
   // Step 4: Funding & Verifier
-  const [targetFundingUsdc, setTargetFundingUsdc] = useState(
-    initialDraft.targetFundingUsdc || "25000"
-  );
-  const [trustScore, setTrustScore] = useState<number>(
-    initialDraft.trustScore || 75
-  );
-  const [verifier, setVerifier] = useState(
-    initialDraft.verifier || address || ""
-  );
+  const [targetFundingUsdc, setTargetFundingUsdc] = useState("25000");
+  const [trustScore, setTrustScore] = useState<number>(75);
+  const [verifier, setVerifier] = useState(address || "");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.title) setTitle(draft.title);
+        if (draft.tagline) setTagline(draft.tagline);
+        if (draft.category) setCategory(draft.category);
+        if (draft.logoUrl) setLogoUrl(draft.logoUrl);
+        if (draft.bannerUrl) setBannerUrl(draft.bannerUrl);
+        if (draft.websiteUrl) setWebsiteUrl(draft.websiteUrl);
+        if (draft.twitterUrl) setTwitterUrl(draft.twitterUrl);
+        if (draft.githubUrl) setGithubUrl(draft.githubUrl);
+        if (draft.contactEmail) setContactEmail(draft.contactEmail);
+        if (draft.description) setDescription(draft.description);
+        if (draft.milestones && draft.milestones.length > 0) setMilestones(draft.milestones);
+        if (draft.documents && draft.documents.length > 0) setDocuments(draft.documents);
+        if (draft.aiAuditReport) setAiAuditReport(draft.aiAuditReport);
+        if (draft.targetFundingUsdc) setTargetFundingUsdc(draft.targetFundingUsdc);
+        if (draft.trustScore) setTrustScore(draft.trustScore);
+        if (draft.verifier) setVerifier(draft.verifier);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (address && !verifier) {
+      setVerifier(address);
+    }
+  }, [address, verifier]);
 
   const saveDraft = () => {
     try {
@@ -278,7 +280,7 @@ function CampaignCreatorWizard() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const sha256 = await computeFileHash(file);
-        const { textSnippet, pdfMetadata } = await extractDocumentText(file);
+        const { textSnippet, base64Data, pdfMetadata, visualMetadata } = await extractDocumentText(file);
         let cat: DocumentAttachment["category"] = "other";
         const fname = file.name.toLowerCase();
         if (fname.includes("whitepaper") || fname.includes("wp"))
@@ -291,7 +293,19 @@ function CampaignCreatorWizard() {
           cat = "budget";
         else if (fname.includes("pitch") || fname.includes("deck"))
           cat = "pitch_deck";
-        else if (fname.includes("spec") || fname.includes("architecture"))
+        else if (
+          fname.includes("arch") ||
+          fname.includes("diagram") ||
+          fname.includes("flow")
+        )
+          cat = "architecture_diagram";
+        else if (
+          fname.includes("proof") ||
+          fname.includes("demo") ||
+          fname.includes("field")
+        )
+          cat = "field_proof";
+        else if (fname.includes("spec"))
           cat = "technical_spec";
         else if (
           fname.includes("id") ||
@@ -310,7 +324,9 @@ function CampaignCreatorWizard() {
           size: file.size,
           sha256,
           textSnippet,
+          base64Data,
           pdfMetadata,
+          visualMetadata,
           ipfsCid: pinResult.cid,
           ipfsUrl: pinResult.gatewayUrl,
           category: cat,
@@ -418,17 +434,17 @@ function CampaignCreatorWizard() {
       if (!tagline.trim()) errs.tagline = "Tagline is required";
       if (!category) errs.category = "Category is required";
     } else if (s === 2) {
-      // Step 2 is docs & AI scan; allow proceeding even if no docs, but warn if no AI scan run
-      if (!aiAuditReport) {
-        // Auto-run AI audit if not run yet
-      }
-    } else if (s === 3) {
       if (!description.trim() || description.length < 30) {
         errs.description =
           "Please provide a detailed story of at least 30 characters";
       }
       if (milestones.length === 0) {
         errs.milestones = "At least one planned milestone is required";
+      }
+    } else if (s === 3) {
+      // Step 3 is docs & AI scan; allow proceeding even if no docs, auto-run AI audit if not run yet
+      if (!aiAuditReport) {
+        // Auto-run AI audit if not run yet
       }
     } else if (s === 4) {
       if (!targetFundingUsdc || Number(targetFundingUsdc) <= 0) {
@@ -446,11 +462,8 @@ function CampaignCreatorWizard() {
 
   const handleNext = async () => {
     if (validateStep(step)) {
-      if (step === 2 && !aiAuditReport) {
+      if (step === 3 && !aiAuditReport) {
         await handleTriggerAiScan();
-      } else if (step === 3 && documents.length > 0) {
-        // Cross-examine the updated story description against attached documents
-        handleTriggerAiScan();
       }
       saveDraft();
       setStep((prev) => Math.min(prev + 1, 5));
@@ -463,7 +476,7 @@ function CampaignCreatorWizard() {
 
   const handleLaunch = async () => {
     if (!signer || !daoConfig || !address) return;
-    if (!validateStep(1) || !validateStep(3) || !validateStep(4)) {
+    if (!validateStep(1) || !validateStep(2) || !validateStep(4)) {
       return;
     }
 
@@ -822,428 +835,22 @@ function CampaignCreatorWizard() {
           <CardFooter className="flex justify-between border-t border-border/40 py-4">
             <div />
             <Button onClick={handleNext} className="gap-1.5">
-              Next: Docs &amp; AI Audit <ChevronRight className="h-4 w-4" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {/* Step 2: Documents & Privacy AI Audit */}
-      {step === 2 && (
-        <Card className="border-border/60">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Cpu className="h-5 w-5 text-primary" /> 2. Supporting
-                  Documents &amp; Privacy AI Audit
-                </CardTitle>
-                <CardDescription>
-                  Upload whitepapers, budget breakdowns, or pitch decks. Our
-                  privacy-preserving engine scans documents with zero data
-                  retention, checks for AI-generation/authenticity, and
-                  calculates an on-chain Trust Score.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Upload Box */}
-            <div className="rounded-2xl border-2 border-dashed border-border/80 bg-muted/20 p-6 text-center hover:border-primary/50 transition-colors">
-              <Upload className="mx-auto h-9 w-9 text-muted-foreground" />
-              <h3 className="mt-2 text-sm font-semibold">
-                Upload Whitepaper, Budget Sheet, Pitch Deck, or Specs
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
-                Files are hashed with SHA-256 in your browser. Supports PDF, MD,
-                TXT, JSON, DOCX, CSV.
-              </p>
-              <div className="mt-4 flex justify-center">
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={isUploadingDocs}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 pointer-events-none"
-                    disabled={isUploadingDocs}
-                  >
-                    <Plus className="h-4 w-4" />{" "}
-                    {isUploadingDocs
-                      ? "Processing..."
-                      : "Select Document Files"}
-                  </Button>
-                </label>
-              </div>
-            </div>
-
-            {/* Document List */}
-            {documents.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Attached Document Fingerprints ({documents.length})
-                </h4>
-                <div className="grid gap-2">
-                  {documents.map((doc, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between rounded-xl border border-border/80 bg-card p-3 text-xs"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="h-4 w-4 text-primary shrink-0" />
-                        <div className="min-w-0 space-y-0.5">
-                          <p className="font-semibold truncate">{doc.name}</p>
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground font-mono">
-                            <span>SHA-256: {doc.sha256.slice(0, 10)}...{doc.sha256.slice(-6)}</span>
-                            <span>· {(doc.size / 1024).toFixed(1)} KB</span>
-                            {doc.ipfsCid && (
-                              <a
-                                href={doc.ipfsUrl || `https://gateway.pinata.cloud/ipfs/${doc.ipfsCid}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline flex items-center gap-0.5"
-                              >
-                                Pinata: {doc.ipfsCid.slice(0, 10)}... <ExternalLink className="h-2.5 w-2.5" />
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge
-                          variant="secondary"
-                          className="capitalize text-[10px]"
-                        >
-                          {doc.category.replace("_", " ")}
-                        </Badge>
-                        <button
-                          type="button"
-                          onClick={() => removeDocument(idx)}
-                          className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Privacy Mode Selector & AI Audit Action */}
-            <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-secondary/10 p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
-                    <Sparkles className="h-4 w-4" /> Privacy-First AI Trust Verification
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Analyzes cross-document consistency, verifies budget math, redacts PII, and generates a Merkle-bound Trust Score.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForceLocalPrivacy(!forceLocalPrivacy)}
-                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-mono transition-colors flex items-center gap-1.5 ${
-                      forceLocalPrivacy
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                        : "bg-muted/40 border-border/80 text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Shield className="h-3 w-3" />
-                    {forceLocalPrivacy ? "Mode: 100% Air-Gapped Local" : "Mode: Zero-Retention Cloud"}
-                  </button>
-
-                  <Button
-                    type="button"
-                    onClick={handleTriggerAiScan}
-                    disabled={isScanningAi}
-                    className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm"
-                  >
-                    <Cpu className="h-4 w-4" />
-                    {isScanningAi
-                      ? "Scanning In-Memory..."
-                      : aiAuditReport
-                        ? "Re-Run Audit"
-                        : "Run AI Audit & Scoring"}
-                  </Button>
-                </div>
-              </div>
-
-              {isScanningAi && (
-                <div className="space-y-2 pt-2 animate-pulse">
-                  <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                    <span>
-                      Evaluating authenticity &amp; deliverable verifiability...
-                    </span>
-                    <span>Analyzing in-memory</span>
-                  </div>
-                  <Progress value={65} className="h-1.5" />
-                </div>
-              )}
-
-              {/* AI Report Card */}
-              {aiAuditReport && !isScanningAi && (
-                <div className="space-y-4 pt-2 border-t border-border/40">
-                  {/* Cryptographic Privacy & Attestation Banner */}
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2 text-xs">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 pb-2">
-                      <span className="font-semibold text-foreground flex items-center gap-1.5">
-                        <ShieldCheck className="h-4 w-4 text-primary" /> Cryptographic Integrity &amp; Privacy Attestation
-                      </span>
-                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary capitalize">
-                        {aiAuditReport.privacyMode === "local_air_gapped" ? "100% Air-Gapped Local" : "Stateless Zero-Retention"}
-                      </Badge>
-                    </div>
-
-                    <div className="grid gap-2 sm:grid-cols-2 text-[11px] font-mono">
-                      <div className="space-y-1">
-                        <span className="text-muted-foreground">Document Merkle Root:</span>
-                        <p className="font-semibold text-foreground truncate bg-background/60 p-1.5 rounded border border-border/40">
-                          {aiAuditReport.docMerkleRoot || "00".repeat(32)}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-muted-foreground">Canonical SHA-256 Audit Hash:</span>
-                        <p className="font-semibold text-primary truncate bg-background/60 p-1.5 rounded border border-border/40">
-                          {aiAuditReport.auditHash || "0x..."}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        🛡️ <strong className="text-foreground">{aiAuditReport.redactionsCount?.totalRedacted ?? 0}</strong> sensitive tokens redacted in-memory
-                      </span>
-                      <span>·</span>
-                      <span className="flex items-center gap-1">
-                        📊 Linguistic Human Score: <strong className="text-foreground">{aiAuditReport.stylometricMetrics?.burstinessScore ?? 75}/100</strong>
-                      </span>
-                      <span>·</span>
-                      <span className="flex items-center gap-1">
-                        {aiAuditReport.budgetAnalysis?.isBalanced ? (
-                          <span className="text-green-600 dark:text-green-400 font-medium">✓ Budget Math Balanced (0% variance)</span>
-                        ) : (
-                          <span className="text-amber-600 dark:text-amber-400 font-medium">⚠️ Budget variance detected</span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
-                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Trust Score
-                      </span>
-                      <p className="text-2xl font-extrabold text-primary tabular-nums mt-0.5">
-                        {aiAuditReport.trustScore}{" "}
-                        <span className="text-xs text-muted-foreground font-normal">
-                          / 100
-                        </span>
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className="mt-1 text-[10px] border-primary/40 bg-primary/10 text-primary"
-                      >
-                        {aiAuditReport.rating}
-                      </Badge>
-                    </div>
-
-                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Authenticity
-                      </span>
-                      <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
-                        {aiAuditReport.subScores.authenticityScore}%
-                      </p>
-                      <span className="text-[10px] text-muted-foreground">
-                        Consistency
-                      </span>
-                    </div>
-
-                    <div className="rounded-xl bg-card border border-primary/30 bg-primary/5 p-3 text-center">
-                      <span className="text-[10px] text-primary uppercase font-bold">
-                        Story Alignment
-                      </span>
-                      <p className="text-2xl font-extrabold text-primary tabular-nums mt-0.5">
-                        {aiAuditReport.subScores.storyDocumentAlignmentScore ?? 85}%
-                      </p>
-                      <span className="text-[10px] text-muted-foreground">
-                        Doc Cross-Check
-                      </span>
-                    </div>
-
-                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Feasibility
-                      </span>
-                      <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
-                        {aiAuditReport.subScores.feasibilityScore}%
-                      </p>
-                      <span className="text-[10px] text-muted-foreground">
-                        Budget Scope
-                      </span>
-                    </div>
-
-                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
-                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        AI Content Risk
-                      </span>
-                      <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
-                        {aiAuditReport.aiGeneratedProbability}%
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className={`mt-1 text-[10px] ${
-                          aiAuditReport.aiGeneratedRisk === "Low"
-                            ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
-                            : aiAuditReport.aiGeneratedRisk === "Medium"
-                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                              : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
-                        }`}
-                      >
-                        {aiAuditReport.aiGeneratedRisk} Risk
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Story vs Document Alignment Findings */}
-                  {((aiAuditReport.storyAlignmentFindings && aiAuditReport.storyAlignmentFindings.length > 0) ||
-                    (aiAuditReport.storyDiscrepancies && aiAuditReport.storyDiscrepancies.length > 0)) && (
-                    <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground flex items-center gap-1.5">
-                          <Cpu className="h-4 w-4 text-primary" /> Story vs. Document Cross-Examination
-                        </span>
-                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
-                          Alignment: {aiAuditReport.subScores.storyDocumentAlignmentScore ?? 85}%
-                        </Badge>
-                      </div>
-
-                      {aiAuditReport.storyAlignmentFindings && aiAuditReport.storyAlignmentFindings.length > 0 && (
-                        <div className="space-y-1">
-                          {aiAuditReport.storyAlignmentFindings.map((f, i) => (
-                            <p key={i} className="flex items-start gap-1.5 text-muted-foreground">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
-                              <span>{f}</span>
-                            </p>
-                          ))}
-                        </div>
-                      )}
-
-                      {aiAuditReport.storyDiscrepancies && aiAuditReport.storyDiscrepancies.length > 0 && (
-                        <div className="space-y-1 pt-1 border-t border-border/40">
-                          {aiAuditReport.storyDiscrepancies.map((d, i) => (
-                            <p key={i} className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                              <span>{d}</span>
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Strengths & Warnings */}
-                  <div className="grid gap-3 sm:grid-cols-2 text-xs">
-                    <div className="rounded-xl bg-card/60 border border-border/60 p-3 space-y-1.5">
-                      <span className="font-semibold text-foreground flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />{" "}
-                        Key Strengths
-                      </span>
-                      <ul className="space-y-1 text-muted-foreground">
-                        {aiAuditReport.strengths.map((s, i) => (
-                          <li key={i} className="flex items-start gap-1.5">
-                            <span className="text-primary">•</span>{" "}
-                            <span>{s}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="rounded-xl bg-card/60 border border-border/60 p-3 space-y-1.5">
-                      <span className="font-semibold text-foreground flex items-center gap-1">
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />{" "}
-                        Risk Warnings &amp; Notes
-                      </span>
-                      <ul className="space-y-1 text-muted-foreground">
-                        {aiAuditReport.riskWarnings.length > 0 ? (
-                          aiAuditReport.riskWarnings.map((w, i) => (
-                            <li key={i} className="flex items-start gap-1.5">
-                              <span className="text-amber-500">•</span>{" "}
-                              <span>{w}</span>
-                            </li>
-                          ))
-                        ) : (
-                          <li className="text-muted-foreground italic">
-                            No critical risk flags detected.
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* AI Suggested Milestones action */}
-                  {aiAuditReport.suggestedMilestones &&
-                    aiAuditReport.suggestedMilestones.length > 0 && (
-                      <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs">
-                        <div className="flex items-center gap-2">
-                          <Lightbulb className="h-4 w-4 text-primary" />
-                          <div>
-                            <span className="font-semibold text-foreground">
-                              AI-Crafted Milestone Roadmap Available
-                            </span>
-                            <p className="text-[11px] text-muted-foreground">
-                              Auto-generated{" "}
-                              {aiAuditReport.suggestedMilestones.length}{" "}
-                              structured milestone tranches matching your
-                              budget.
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          onClick={applySuggestedMilestones}
-                          className="gap-1.5 font-semibold text-xs"
-                        >
-                          <Layers className="h-3.5 w-3.5" /> Apply Milestones
-                        </Button>
-                      </div>
-                    )}
-                </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t border-border/40 py-4">
-            <Button variant="outline" onClick={handleBack} className="gap-1.5">
-              <ChevronLeft className="h-4 w-4" /> Back
-            </Button>
-            <Button onClick={handleNext} className="gap-1.5">
               Next: Story &amp; Milestones <ChevronRight className="h-4 w-4" />
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* Step 3: Story & Roadmap */}
-      {step === 3 && (
+      {/* Step 2: Story & Roadmap */}
+      {step === 2 && (
         <Card className="border-border/60">
           <CardHeader>
-            <CardTitle>3. Project Story &amp; Milestone Roadmap</CardTitle>
+            <CardTitle>2. Project Story &amp; Milestone Roadmap</CardTitle>
             <CardDescription>
-              Detail your technical roadmap. Escrowed stablecoins will be
-              released per milestone tranche only upon verifier co-signing and
-              DAO approval.
+              Detail your technical roadmap and narrative. The Privacy AI Engine
+              in the next step will cross-examine this story against your
+              supporting documents. Escrowed stablecoins will be released per
+              milestone tranche only upon verifier co-signing and DAO approval.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1423,6 +1030,471 @@ function CampaignCreatorWizard() {
               </div>
               {errors.milestones && (
                 <p className="text-xs text-destructive">{errors.milestones}</p>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between border-t border-border/40 py-4">
+            <Button variant="outline" onClick={handleBack} className="gap-1.5">
+              <ChevronLeft className="h-4 w-4" /> Back
+            </Button>
+            <Button onClick={handleNext} className="gap-1.5">
+              Next: Docs &amp; AI Audit <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 3: Documents & Privacy AI Audit */}
+      {step === 3 && (
+        <Card className="border-border/60">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Cpu className="h-5 w-5 text-primary" /> 3. Supporting
+                  Documents &amp; Privacy AI Audit
+                </CardTitle>
+                <CardDescription>
+                  Upload whitepapers, budget breakdowns, pitch decks, or specs.
+                  Our privacy-preserving engine cross-examines your campaign
+                  story against attached documents, checks for authenticity,
+                  verifies budget math, and calculates an on-chain Trust Score.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Upload Box */}
+            <div className="rounded-2xl border-2 border-dashed border-border/80 bg-muted/20 p-6 text-center hover:border-primary/50 transition-colors">
+              <Upload className="mx-auto h-9 w-9 text-muted-foreground" />
+              <h3 className="mt-2 text-sm font-semibold">
+                Upload Whitepaper, Budget Sheet, Pitch Deck, or Specs
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
+                Files are hashed with SHA-256 in your browser. Supports PDF, MD,
+                TXT, JSON, DOCX, CSV.
+              </p>
+              <div className="mt-4 flex justify-center">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={isUploadingDocs}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 pointer-events-none"
+                    disabled={isUploadingDocs}
+                  >
+                    <Plus className="h-4 w-4" />{" "}
+                    {isUploadingDocs
+                      ? "Processing..."
+                      : "Select Document Files"}
+                  </Button>
+                </label>
+              </div>
+            </div>
+
+            {/* Document List */}
+            {documents.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Attached Document Fingerprints ({documents.length})
+                </h4>
+                <div className="grid gap-2">
+                  {documents.map((doc, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between rounded-xl border border-border/80 bg-card p-3 text-xs"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="font-semibold truncate">{doc.name}</p>
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground font-mono">
+                            <span>SHA-256: {doc.sha256.slice(0, 10)}...{doc.sha256.slice(-6)}</span>
+                            <span>· {(doc.size / 1024).toFixed(1)} KB</span>
+                            {doc.ipfsCid && (
+                              <a
+                                href={doc.ipfsUrl || `https://gateway.pinata.cloud/ipfs/${doc.ipfsCid}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline flex items-center gap-0.5"
+                              >
+                                Pinata: {doc.ipfsCid.slice(0, 10)}... <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant="secondary"
+                          className="capitalize text-[10px]"
+                        >
+                          {doc.category.replace("_", " ")}
+                        </Badge>
+                        <button
+                          type="button"
+                          onClick={() => removeDocument(idx)}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Privacy Mode Selector & AI Audit Action */}
+            <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-secondary/10 p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                    <Sparkles className="h-4 w-4" /> Privacy-First AI Trust Verification
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Cross-examines your campaign story (Step 2) against attached documents, verifies budget math, redacts PII, and generates a Merkle-bound Trust Score.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForceLocalPrivacy(!forceLocalPrivacy)}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-mono transition-colors flex items-center gap-1.5 ${
+                      forceLocalPrivacy
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                        : "bg-muted/40 border-border/80 text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Shield className="h-3 w-3" />
+                    {forceLocalPrivacy ? "Mode: 100% Air-Gapped Local" : "Mode: Zero-Retention Cloud"}
+                  </button>
+
+                  <Button
+                    type="button"
+                    onClick={handleTriggerAiScan}
+                    disabled={isScanningAi}
+                    className="gap-2 bg-primary text-primary-foreground font-bold shadow-sm"
+                  >
+                    <Cpu className="h-4 w-4" />
+                    {isScanningAi
+                      ? "Scanning In-Memory..."
+                      : aiAuditReport
+                        ? "Re-Run Audit"
+                        : "Run AI Audit & Scoring"}
+                  </Button>
+                </div>
+              </div>
+
+              {isScanningAi && (
+                <div className="space-y-2 pt-2 animate-pulse">
+                  <div className="flex justify-between text-xs text-muted-foreground font-mono">
+                    <span>
+                      Evaluating authenticity &amp; deliverable verifiability...
+                    </span>
+                    <span>Analyzing in-memory</span>
+                  </div>
+                  <Progress value={65} className="h-1.5" />
+                </div>
+              )}
+
+              {/* AI Report Card */}
+              {aiAuditReport && !isScanningAi && (
+                <div className="space-y-4 pt-2 border-t border-border/40">
+                  {/* Cryptographic Privacy & Attestation Banner */}
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 pb-2">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <ShieldCheck className="h-4 w-4 text-primary" /> Cryptographic Integrity &amp; Privacy Attestation
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {aiAuditReport.privacyEngine === "presidio_ner" && (
+                          <Badge variant="outline" className="text-[10px] bg-blue-500/10 border-blue-500/30 text-blue-400 font-semibold">
+                            Microsoft Presidio NLP
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/30 text-primary capitalize">
+                          {aiAuditReport.privacyMode === "local_air_gapped" ? "100% Air-Gapped Local" : "Stateless Zero-Retention"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2 text-[11px] font-mono">
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Document Merkle Root:</span>
+                        <p className="font-semibold text-foreground truncate bg-background/60 p-1.5 rounded border border-border/40">
+                          {aiAuditReport.docMerkleRoot || "00".repeat(32)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Canonical SHA-256 Audit Hash:</span>
+                        <p className="font-semibold text-primary truncate bg-background/60 p-1.5 rounded border border-border/40">
+                          {aiAuditReport.auditHash || "0x..."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        🛡️ <strong className="text-foreground">{aiAuditReport.redactionsCount?.totalRedacted ?? 0}</strong> sensitive tokens redacted in-memory
+                        {aiAuditReport.redactionsCount && (
+                          <span className="text-[10px] text-muted-foreground">
+                            ({aiAuditReport.redactionsCount.keysAndSecrets} keys, {aiAuditReport.redactionsCount.namesAndLocations ?? 0} names/locs, {aiAuditReport.redactionsCount.emailsAndPhones} contacts, {aiAuditReport.redactionsCount.financialAccounts + aiAuditReport.redactionsCount.nationalIds} IDs)
+                          </span>
+                        )}
+                      </span>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        📊 Linguistic Human Score: <strong className="text-foreground">{aiAuditReport.stylometricMetrics?.burstinessScore ?? 75}/100</strong>
+                      </span>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        {aiAuditReport.budgetAnalysis?.isBalanced ? (
+                          <span className="text-green-600 dark:text-green-400 font-medium">✓ Budget Math Balanced (0% variance)</span>
+                        ) : (
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">⚠️ Budget variance detected</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Trust Score
+                      </span>
+                      <p className="text-2xl font-extrabold text-primary tabular-nums mt-0.5">
+                        {aiAuditReport.trustScore}{" "}
+                        <span className="text-xs text-muted-foreground font-normal">
+                          / 100
+                        </span>
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className="mt-1 text-[10px] border-primary/40 bg-primary/10 text-primary"
+                      >
+                        {aiAuditReport.rating}
+                      </Badge>
+                    </div>
+
+                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Authenticity
+                      </span>
+                      <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
+                        {aiAuditReport.subScores.authenticityScore}%
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">
+                        Consistency
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl bg-card border border-primary/30 bg-primary/5 p-3 text-center">
+                      <span className="text-[10px] text-primary uppercase font-bold">
+                        Story Alignment
+                      </span>
+                      <p className="text-2xl font-extrabold text-primary tabular-nums mt-0.5">
+                        {aiAuditReport.subScores.storyDocumentAlignmentScore ?? 85}%
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">
+                        Doc Cross-Check
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Feasibility
+                      </span>
+                      <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
+                        {aiAuditReport.subScores.feasibilityScore}%
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">
+                        Budget Scope
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl bg-card border border-border/60 p-3 text-center">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        AI Content Risk
+                      </span>
+                      <p className="text-2xl font-extrabold text-foreground tabular-nums mt-0.5">
+                        {aiAuditReport.aiGeneratedProbability}%
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={`mt-1 text-[10px] ${
+                          aiAuditReport.aiGeneratedRisk === "Low"
+                            ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
+                            : aiAuditReport.aiGeneratedRisk === "Medium"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
+                        }`}
+                      >
+                        {aiAuditReport.aiGeneratedRisk} Risk
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Story vs Document Alignment Findings */}
+                  {((aiAuditReport.storyAlignmentFindings && aiAuditReport.storyAlignmentFindings.length > 0) ||
+                    (aiAuditReport.storyDiscrepancies && aiAuditReport.storyDiscrepancies.length > 0)) && (
+                    <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Cpu className="h-4 w-4 text-primary" /> Story vs. Document Cross-Examination
+                        </span>
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                          Alignment: {aiAuditReport.subScores.storyDocumentAlignmentScore ?? 85}%
+                        </Badge>
+                      </div>
+
+                      {aiAuditReport.storyAlignmentFindings && aiAuditReport.storyAlignmentFindings.length > 0 && (
+                        <div className="space-y-1">
+                          {aiAuditReport.storyAlignmentFindings.map((f, i) => (
+                            <p key={i} className="flex items-start gap-1.5 text-muted-foreground">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                              <span>{f}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {aiAuditReport.storyDiscrepancies && aiAuditReport.storyDiscrepancies.length > 0 && (
+                        <div className="space-y-1 pt-1 border-t border-border/40">
+                          {aiAuditReport.storyDiscrepancies.map((d, i) => (
+                            <p key={i} className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>{d}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Multimodal VLM Visual & Diagram Diligence Card */}
+                  {aiAuditReport.visualAudit && (
+                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Layers className="h-4 w-4 text-primary" /> Multimodal Vision Diligence (VLM)
+                        </span>
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                          Visual Score: {aiAuditReport.visualAudit.compositeVisualScore}%
+                        </Badge>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-3 text-[11px]">
+                        <div className="rounded-lg bg-card/80 border border-border/60 p-2">
+                          <span className="text-muted-foreground block text-[10px]">Architecture Diagrams:</span>
+                          <span className="font-semibold text-foreground">
+                            {aiAuditReport.visualAudit.diagramConsistencyScore}% Match
+                          </span>
+                        </div>
+                        <div className="rounded-lg bg-card/80 border border-border/60 p-2">
+                          <span className="text-muted-foreground block text-[10px]">Financial Grids:</span>
+                          <span className="font-semibold text-foreground">
+                            {aiAuditReport.visualAudit.budgetTableAccuracyScore}% Balance
+                          </span>
+                        </div>
+                        <div className="rounded-lg bg-card/80 border border-border/60 p-2">
+                          <span className="text-muted-foreground block text-[10px]">Field Deliverables:</span>
+                          <span className="font-semibold text-foreground">
+                            {aiAuditReport.visualAudit.deliverableProofScore}% Verified
+                          </span>
+                        </div>
+                      </div>
+
+                      {aiAuditReport.visualAudit.diagramFindings.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          {aiAuditReport.visualAudit.diagramFindings.map((df, i) => (
+                            <p key={i} className="flex items-start gap-1.5 text-muted-foreground">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                              <span>{df}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Strengths & Warnings */}
+                  <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                    <div className="rounded-xl bg-card/60 border border-border/60 p-3 space-y-1.5">
+                      <span className="font-semibold text-foreground flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />{" "}
+                        Key Strengths
+                      </span>
+                      <ul className="space-y-1 text-muted-foreground">
+                        {aiAuditReport.strengths.map((s, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <span className="text-primary">•</span>{" "}
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="rounded-xl bg-card/60 border border-border/60 p-3 space-y-1.5">
+                      <span className="font-semibold text-foreground flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />{" "}
+                        Risk Warnings &amp; Notes
+                      </span>
+                      <ul className="space-y-1 text-muted-foreground">
+                        {aiAuditReport.riskWarnings.length > 0 ? (
+                          aiAuditReport.riskWarnings.map((w, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <span className="text-amber-500">•</span>{" "}
+                              <span>{w}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-muted-foreground italic">
+                            No critical risk flags detected.
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* AI Suggested Milestones action */}
+                  {aiAuditReport.suggestedMilestones &&
+                    aiAuditReport.suggestedMilestones.length > 0 && (
+                      <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Lightbulb className="h-4 w-4 text-primary" />
+                          <div>
+                            <span className="font-semibold text-foreground">
+                              AI-Crafted Milestone Roadmap Available
+                            </span>
+                            <p className="text-[11px] text-muted-foreground">
+                              Auto-generated{" "}
+                              {aiAuditReport.suggestedMilestones.length}{" "}
+                              structured milestone tranches matching your
+                              budget.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={applySuggestedMilestones}
+                          className="gap-1.5 font-semibold text-xs"
+                        >
+                          <Layers className="h-3.5 w-3.5" /> Apply Milestones
+                        </Button>
+                      </div>
+                    )}
+                </div>
               )}
             </div>
           </CardContent>

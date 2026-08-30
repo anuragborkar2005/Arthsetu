@@ -29,8 +29,21 @@ export function Stat({
 }
 
 export function ConnectGate({ children }: { children: ReactNode }) {
-  const { status, connect, connectors } = useWallet();
+  const { status, connect, connectors, isReady } = useWallet();
   if (status === "connected") return <>{children}</>;
+
+  if (!isReady) {
+    return (
+      <Card className="p-10 text-center">
+        <p className="text-sm font-medium">Connect your wallet to get started</p>
+        <p className="mt-1 text-sm text-muted">Detecting Solana wallets...</p>
+        <div className="mt-4 flex justify-center gap-2">
+          <Skeleton className="h-9 w-28 rounded-md" />
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-10 text-center">
       <p className="text-sm font-medium">Connect your wallet to get started</p>

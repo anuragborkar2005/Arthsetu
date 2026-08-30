@@ -29,7 +29,7 @@ This directory contains complete, verified reference data and IPFS metadata sche
 3. Click the top button: **"🌊 Load Example: Assam Flood Relief 2026"**.
 4. The entire 5-step wizard will automatically populate:
    * **Step 1**: Title, tagline, climate category, branding images, and website links.
-   * **Step 2**: 3 Document artifacts with SHA-256 hashes & Pinata CIDs + **94/100 Trust Score**.
-   * **Step 3**: Rich GFM Story & 3-stage milestone roadmap.
+   * **Step 2**: Rich GFM Story & 3-stage milestone roadmap.
+   * **Step 3**: 3 Document artifacts with SHA-256 hashes & Pinata CIDs + **94/100 Trust Score** cross-examined against story.
    * **Step 4**: $50,000 USDC goal and designated verifier address.
    * **Step 5**: Review & 1-click launch on Solana devnet/localnet.
