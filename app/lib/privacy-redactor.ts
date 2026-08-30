@@ -214,8 +214,15 @@ const BIP39_WORDS = new Set([
   "yard", "year", "yellow", "you", "young", "youth", "zebra", "zero", "zone", "zoo"
 ]);
 
+import {
+  sanitizeTextWithPresidioService,
+  isPresidioConfigured,
+  type PresidioConfig,
+} from "./presidio-client";
+
 export interface RedactionMetrics {
   keysAndSecrets: number;
+  namesAndLocations: number;
   emailsAndPhones: number;
   financialAccounts: number;
   nationalIds: number;
@@ -223,7 +230,19 @@ export interface RedactionMetrics {
 }
 
 export interface RedactionTraceEntry {
-  type: "BIP39_SEED" | "SOL_PRIVKEY" | "HEX_PRIVKEY" | "EMAIL" | "PHONE" | "IBAN" | "CARD" | "TAX_ID";
+  type:
+    | "BIP39_SEED"
+    | "SOL_PRIVKEY"
+    | "HEX_PRIVKEY"
+    | "PERSON"
+    | "LOCATION"
+    | "ORGANIZATION"
+    | "EMAIL"
+    | "PHONE"
+    | "IBAN"
+    | "CARD"
+    | "TAX_ID"
+    | "AADHAAR";
   offset: number;
 }
 
@@ -231,6 +250,7 @@ export interface RedactionResult {
   sanitizedText: string;
   metrics: RedactionMetrics;
   traces: RedactionTraceEntry[];
+  engine?: "presidio_ner" | "builtin_ts";
 }
 
 /**
@@ -253,18 +273,23 @@ export function isSolanaBase58Key(candidate: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]+$/.test(candidate);
 }
 
+/**
+ * Tier 1 In-Memory Pure TypeScript Privacy Redactor (Zero External Dependencies, <1ms)
+ */
 export function sanitizeTextForPrivacyV2(rawText: string): RedactionResult {
   if (!rawText) {
     return {
       sanitizedText: "",
       metrics: {
         keysAndSecrets: 0,
+        namesAndLocations: 0,
         emailsAndPhones: 0,
         financialAccounts: 0,
         nationalIds: 0,
         totalRedacted: 0,
       },
       traces: [],
+      engine: "builtin_ts",
     };
   }
 
@@ -276,12 +301,24 @@ export function sanitizeTextForPrivacyV2(rawText: string): RedactionResult {
 
   let text = rawText;
 
-  // 1. BIP-39 Mnemonic Seed Phrases (Exact dictionary lookup)
+  // 1. BIP-39 Mnemonic Seed Phrases (Exact dictionary lookup with prefix windowing)
   text = text.replace(/\b(?:[a-z]{3,8}\s+){11,23}[a-z]{3,8}\b/gi, (match, offset) => {
-    if (isValidBip39Phrase(match)) {
+    const words = match.trim().split(/\s+/);
+    if ((words.length === 12 || words.length === 18 || words.length === 24) && words.every((w) => BIP39_WORDS.has(w.toLowerCase()))) {
       keysCount++;
       traces.push({ type: "BIP39_SEED", offset });
       return "[BIP39_SEED_PHRASE_REDACTED]";
+    }
+    for (const len of [24, 18, 12]) {
+      if (words.length >= len) {
+        const subWords = words.slice(0, len);
+        if (subWords.every((w) => BIP39_WORDS.has(w.toLowerCase()))) {
+          keysCount++;
+          traces.push({ type: "BIP39_SEED", offset });
+          const remaining = words.slice(len).join(" ");
+          return `[BIP39_SEED_PHRASE_REDACTED] ${remaining}`;
+        }
+      }
     }
     return match;
   });
@@ -363,11 +400,88 @@ export function sanitizeTextForPrivacyV2(rawText: string): RedactionResult {
     sanitizedText: text,
     metrics: {
       keysAndSecrets: keysCount,
+      namesAndLocations: 0,
       emailsAndPhones: contactCount,
       financialAccounts: finCount,
       nationalIds: idCount,
       totalRedacted,
     },
     traces,
+    engine: "builtin_ts",
   };
+}
+
+/**
+ * Enterprise Hybrid Privacy Redactor (Microsoft Presidio NLP NER + Web3 Crypto Recognizers)
+ *
+ * If Microsoft Presidio Analyzer/Anonymizer are available, applies deep Named Entity Recognition (spaCy/Transformers)
+ * to detect person names, locations, organizations, and sensitive contextual metadata, then applies
+ * Web3-native recognizers (BIP-39 seeds, Solana Base58 private keys, EVM keys).
+ *
+ * If Presidio is unreachable or unconfigured, transparently falls back to the in-memory Tier 1 engine.
+ */
+export async function sanitizeTextForPrivacyPresidio(
+  rawText: string,
+  presidioConfig?: PresidioConfig
+): Promise<RedactionResult> {
+  if (!rawText) {
+    return {
+      sanitizedText: "",
+      metrics: {
+        keysAndSecrets: 0,
+        namesAndLocations: 0,
+        emailsAndPhones: 0,
+        financialAccounts: 0,
+        nationalIds: 0,
+        totalRedacted: 0,
+      },
+      traces: [],
+      engine: "builtin_ts",
+    };
+  }
+
+  // 1. Try Microsoft Presidio NLP if configured
+  if (isPresidioConfigured() || presidioConfig) {
+    try {
+      const presidioRes = await sanitizeTextWithPresidioService(rawText, presidioConfig);
+
+      let namesAndLocationsCount = 0;
+      const traces: RedactionTraceEntry[] = [];
+
+      for (const item of presidioRes.anonymizedItems) {
+        if (item.entity_type === "PERSON") {
+          namesAndLocationsCount++;
+          traces.push({ type: "PERSON", offset: item.start });
+        } else if (item.entity_type === "LOCATION" || item.entity_type === "ORGANIZATION") {
+          namesAndLocationsCount++;
+          traces.push({ type: "LOCATION", offset: item.start });
+        }
+      }
+
+      // 2. Perform Web3 crypto-native passes on top of Presidio output
+      const nativePass = sanitizeTextForPrivacyV2(presidioRes.sanitizedText);
+
+      const combinedMetrics: RedactionMetrics = {
+        keysAndSecrets: nativePass.metrics.keysAndSecrets,
+        namesAndLocations: namesAndLocationsCount + nativePass.metrics.namesAndLocations,
+        emailsAndPhones: nativePass.metrics.emailsAndPhones,
+        financialAccounts: nativePass.metrics.financialAccounts,
+        nationalIds: nativePass.metrics.nationalIds,
+        totalRedacted: nativePass.metrics.totalRedacted + namesAndLocationsCount,
+      };
+
+      return {
+        sanitizedText: nativePass.sanitizedText,
+        metrics: combinedMetrics,
+        traces: [...traces, ...nativePass.traces],
+        engine: "presidio_ner",
+      };
+    } catch (presidioErr: unknown) {
+      const msg = presidioErr instanceof Error ? presidioErr.message : String(presidioErr);
+      console.warn("Presidio service unavailable, activating built-in TypeScript engine fallback:", msg);
+    }
+  }
+
+  // Fallback to built-in Tier 1 engine
+  return sanitizeTextForPrivacyV2(rawText);
 }

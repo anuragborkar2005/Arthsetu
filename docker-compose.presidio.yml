@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  # Microsoft Presidio Analyzer (NLP Named Entity Recognition via spaCy)
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    container_name: arthasetu-presidio-analyzer
+    ports:
+      - "5001:3000"
+    environment:
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Microsoft Presidio Anonymizer (De-identification & Masking Service)
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:latest
+    container_name: arthasetu-presidio-anonymizer
+    ports:
+      - "5002:3000"
+    environment:
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
