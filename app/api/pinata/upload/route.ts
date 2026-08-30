@@ -63,36 +63,83 @@ export async function POST(req: NextRequest) {
       }
 
       const fileBuffer = await file.arrayBuffer();
+      const fileName = customName || file.name || "upload.bin";
 
-      // If Pinata credentials are available, attempt upload to Pinata Cloud API with timeout
-      if (cleanJwt || (pinataApiKey && pinataSecretKey)) {
+      // If Pinata JWT is available, upload via modern Pinata v3 Files API
+      if (cleanJwt) {
         try {
           const pinataFormData = new FormData();
-          pinataFormData.append("file", file, customName || file.name);
-
-          const pinataMetadata = JSON.stringify({
-            name: customName || file.name,
-            keyvalues: {
+          const fileBlob = new Blob([fileBuffer], { type: file.type || "application/octet-stream" });
+          pinataFormData.append("file", fileBlob, fileName);
+          pinataFormData.append("name", fileName);
+          pinataFormData.append("network", "public");
+          pinataFormData.append("cid_version", "v1");
+          pinataFormData.append(
+            "keyvalues",
+            JSON.stringify({
               app: "arthasetu",
-              fileType: typeKey || file.type,
+              fileType: typeKey || file.type || "document",
               uploadedAt: new Date().toISOString(),
-            },
-          });
-          pinataFormData.append("pinataMetadata", pinataMetadata);
+            })
+          );
 
-          const headers: Record<string, string> = {};
-          if (cleanJwt) {
-            headers["Authorization"] = `Bearer ${cleanJwt}`;
-          } else if (pinataApiKey && pinataSecretKey) {
-            headers["pinata_api_key"] = pinataApiKey;
-            headers["pinata_secret_api_key"] = pinataSecretKey;
+          const pinataRes = await fetch("https://uploads.pinata.cloud/v3/files", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${cleanJwt}`,
+            },
+            body: pinataFormData,
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (pinataRes.ok) {
+            const resJson = await pinataRes.json();
+            const cid = resJson.data?.cid || resJson.IpfsHash || resJson.cid;
+            if (cid) {
+              return NextResponse.json({
+                success: true,
+                cid,
+                uri: `ipfs://${cid}`,
+                gatewayUrl: `${normalizedGateway}${cid}`,
+                isRealPinata: true,
+                size: file.size,
+                filename: fileName,
+              });
+            }
+          } else {
+            const errText = await pinataRes.text();
+            console.warn("Pinata v3 Files API error response:", pinataRes.status, errText);
           }
+        } catch (pinataErr: unknown) {
+          const msg = pinataErr instanceof Error ? pinataErr.message : String(pinataErr);
+          console.warn("Pinata v3 upload unavailable, activating fallback:", msg);
+        }
+      } else if (pinataApiKey && pinataSecretKey) {
+        // Fallback for legacy API keys
+        try {
+          const pinataFormData = new FormData();
+          const fileBlob = new Blob([fileBuffer], { type: file.type || "application/octet-stream" });
+          pinataFormData.append("file", fileBlob, fileName);
+          pinataFormData.append(
+            "pinataMetadata",
+            JSON.stringify({
+              name: fileName,
+              keyvalues: {
+                app: "arthasetu",
+                fileType: typeKey || file.type,
+                uploadedAt: new Date().toISOString(),
+              },
+            })
+          );
 
           const pinataRes = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
             method: "POST",
-            headers,
+            headers: {
+              pinata_api_key: pinataApiKey,
+              pinata_secret_api_key: pinataSecretKey,
+            },
             body: pinataFormData,
-            signal: AbortSignal.timeout(6000),
+            signal: AbortSignal.timeout(15000),
           });
 
           if (pinataRes.ok) {
@@ -105,15 +152,11 @@ export async function POST(req: NextRequest) {
               gatewayUrl: `${normalizedGateway}${cid}`,
               isRealPinata: true,
               size: file.size,
-              filename: file.name,
+              filename: fileName,
             });
-          } else {
-            const errText = await pinataRes.text();
-            console.warn("Pinata API returned error response:", pinataRes.status, errText);
           }
-        } catch (pinataErr: unknown) {
-          const msg = pinataErr instanceof Error ? pinataErr.message : String(pinataErr);
-          console.warn("Pinata cloud upload unavailable, activating offline CID fallback:", msg);
+        } catch (legacyErr: unknown) {
+          console.warn("Legacy Pinata API error:", legacyErr);
         }
       }
 
@@ -146,39 +189,69 @@ export async function POST(req: NextRequest) {
       const jsonString = typeof payload === "string" ? payload : JSON.stringify(payload);
       const encoder = new TextEncoder();
       const buffer = encoder.encode(jsonString);
+      const fileName = name || "arthasetu-metadata.json";
 
-      if (cleanJwt || (pinataApiKey && pinataSecretKey)) {
+      if (cleanJwt) {
         try {
-          const pinataPayload = {
-            pinataOptions: {
-              cidVersion: 1,
-            },
-            pinataMetadata: {
-              name: name || "arthasetu-metadata.json",
-              keyvalues: {
-                app: "arthasetu",
-                type: "json_metadata",
-                uploadedAt: new Date().toISOString(),
-              },
-            },
-            pinataContent: typeof payload === "string" ? JSON.parse(payload) : payload,
-          };
+          const pinataFormData = new FormData();
+          const jsonBlob = new Blob([jsonString], { type: "application/json" });
+          pinataFormData.append("file", jsonBlob, fileName);
+          pinataFormData.append("name", fileName);
+          pinataFormData.append("network", "public");
+          pinataFormData.append("cid_version", "v1");
+          pinataFormData.append(
+            "keyvalues",
+            JSON.stringify({
+              app: "arthasetu",
+              type: "json_metadata",
+              uploadedAt: new Date().toISOString(),
+            })
+          );
 
-          const headers: Record<string, string> = {
-            "Content-Type": "application/json",
-          };
-          if (cleanJwt) {
-            headers["Authorization"] = `Bearer ${cleanJwt}`;
-          } else if (pinataApiKey && pinataSecretKey) {
-            headers["pinata_api_key"] = pinataApiKey;
-            headers["pinata_secret_api_key"] = pinataSecretKey;
+          const pinataRes = await fetch("https://uploads.pinata.cloud/v3/files", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${cleanJwt}`,
+            },
+            body: pinataFormData,
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (pinataRes.ok) {
+            const resJson = await pinataRes.json();
+            const cid = resJson.data?.cid || resJson.IpfsHash || resJson.cid;
+            if (cid) {
+              return NextResponse.json({
+                success: true,
+                cid,
+                uri: `ipfs://${cid}`,
+                gatewayUrl: `${normalizedGateway}${cid}`,
+                isRealPinata: true,
+              });
+            }
+          } else {
+            const errText = await pinataRes.text();
+            console.warn("Pinata v3 JSON pinning error response:", pinataRes.status, errText);
           }
-
+        } catch (pinataErr: unknown) {
+          const msg = pinataErr instanceof Error ? pinataErr.message : String(pinataErr);
+          console.warn("Pinata v3 JSON pinning unavailable, activating fallback:", msg);
+        }
+      } else if (pinataApiKey && pinataSecretKey) {
+        try {
           const pinataRes = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
             method: "POST",
-            headers,
-            body: JSON.stringify(pinataPayload),
-            signal: AbortSignal.timeout(6000),
+            headers: {
+              "Content-Type": "application/json",
+              pinata_api_key: pinataApiKey,
+              pinata_secret_api_key: pinataSecretKey,
+            },
+            body: JSON.stringify({
+              pinataOptions: { cidVersion: 1 },
+              pinataMetadata: { name: fileName },
+              pinataContent: typeof payload === "string" ? JSON.parse(payload) : payload,
+            }),
+            signal: AbortSignal.timeout(15000),
           });
 
           if (pinataRes.ok) {
@@ -191,13 +264,9 @@ export async function POST(req: NextRequest) {
               gatewayUrl: `${normalizedGateway}${cid}`,
               isRealPinata: true,
             });
-          } else {
-            const errText = await pinataRes.text();
-            console.warn("Pinata JSON pinning error response:", pinataRes.status, errText);
           }
-        } catch (pinataErr: unknown) {
-          const msg = pinataErr instanceof Error ? pinataErr.message : String(pinataErr);
-          console.warn("Pinata JSON pinning unavailable, activating offline CID fallback:", msg);
+        } catch (legacyErr: unknown) {
+          console.warn("Legacy Pinata JSON error:", legacyErr);
         }
       }
 
