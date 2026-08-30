@@ -10,8 +10,10 @@ import {
 import { sanitizeAgainstAdversarialInput } from "../app/lib/adversarial-defense";
 import {
   sanitizeTextForPrivacyV2,
+  sanitizeTextForPrivacyPresidio,
   isValidBip39Phrase,
 } from "../app/lib/privacy-redactor";
+import { DEFAULT_PRESIDIO_ENTITIES } from "../app/lib/presidio-client";
 import { evaluateBudgetMath } from "../app/lib/budget-validator";
 import {
   computeStylometrics,
@@ -221,6 +223,51 @@ async function runTestSuite() {
   }
 
   // -------------------------------------------------------------
+  // Test 3b: Microsoft Presidio Hybrid Redaction & NLP Adapter
+  // -------------------------------------------------------------
+  console.log(
+    "\n[3b] Testing Microsoft Presidio Hybrid Engine & Entity Anonymization..."
+  );
+  {
+    assert(
+      DEFAULT_PRESIDIO_ENTITIES.includes("PERSON") &&
+        DEFAULT_PRESIDIO_ENTITIES.includes("LOCATION") &&
+        DEFAULT_PRESIDIO_ENTITIES.includes("ORGANIZATION") &&
+        DEFAULT_PRESIDIO_ENTITIES.includes("IN_PAN"),
+      "Presidio entity registry covers PERSON, LOCATION, ORGANIZATION, and IN_PAN"
+    );
+
+    const textWithHybridData = `
+      Lead Founder: Yash Izate
+      Office: Tech Park, Guwahati, Assam
+      Mnemonic seed phrase: abandon ability able about above absent absorb abstract absurd abuse access accident
+      Solana deployment key: 5MaiiCavjCmn9Hs1o3gfRpvPnoiGnoqDWGsVmWyzPZn9Hs1o3gfRpvPnoiGnoqDWGsVmWyzPZn9Hs1o3gfRpvP
+      Contact: founder@arthasetu.io
+    `;
+
+    const hybridRedacted =
+      await sanitizeTextForPrivacyPresidio(textWithHybridData);
+
+    assert(
+      hybridRedacted.sanitizedText.includes("[BIP39_SEED_PHRASE_REDACTED]"),
+      "Hybrid engine redacts BIP-39 seed phrase"
+    );
+    assert(
+      hybridRedacted.sanitizedText.includes("[SOL_PRIVKEY_REDACTED]"),
+      "Hybrid engine redacts Solana Base58 private key"
+    );
+    assert(
+      hybridRedacted.sanitizedText.includes("[EMAIL_REDACTED]"),
+      "Hybrid engine redacts contact email"
+    );
+    assert(
+      hybridRedacted.engine === "builtin_ts" ||
+        hybridRedacted.engine === "presidio_ner",
+      `Hybrid engine reported active engine (${hybridRedacted.engine})`
+    );
+  }
+
+  // -------------------------------------------------------------
   // Test 4: Quantitative Budget & Line-Item Category Analyzer
   // -------------------------------------------------------------
   console.log(
@@ -272,8 +319,14 @@ async function runTestSuite() {
       hasBudgetDocument: true,
     });
 
-    assert(!unbalancedAnalysis.isBalanced, "Correctly flags unbalanced milestone sum");
-    assert(unbalancedAnalysis.warnings.length > 0, "Provides actionable milestone allocation warning");
+    assert(
+      !unbalancedAnalysis.isBalanced,
+      "Correctly flags unbalanced milestone sum"
+    );
+    assert(
+      unbalancedAnalysis.warnings.length > 0,
+      "Provides actionable milestone allocation warning"
+    );
 
     // Test Resume / Non-Budget Document Upload (No False Positive Budget Warnings)
     const resumeText = `
@@ -294,8 +347,14 @@ async function runTestSuite() {
       hasBudgetDocument: false,
     });
 
-    assert(resumeAnalysis.isBalanced, "Resume upload without budget document is balanced with milestones");
-    assert(resumeAnalysis.warnings.length === 0, "No false positive budget variance warnings on resume upload");
+    assert(
+      resumeAnalysis.isBalanced,
+      "Resume upload without budget document is balanced with milestones"
+    );
+    assert(
+      resumeAnalysis.warnings.length === 0,
+      "No false positive budget variance warnings on resume upload"
+    );
   }
 
   // -------------------------------------------------------------
@@ -430,14 +489,26 @@ async function runTestSuite() {
           name: "Yash_Izate_Resume.pdf",
           type: "application/pdf",
           size: 85000,
-          sha256: "5555555555555555555555555555555555555555555555555555555555555555",
+          sha256:
+            "5555555555555555555555555555555555555555555555555555555555555555",
           category: "other",
-          textSnippet: "B.Tech in VLSI Design, Java, Python, IoT, STM32, full stack developer seeking software role.",
+          textSnippet:
+            "B.Tech in VLSI Design, Java, Python, IoT, STM32, full stack developer seeking software role.",
         },
       ],
       plannedMilestones: [
-        { id: 0, title: "Supplies", description: "Food & Rations", targetAmountUsdc: "15000" },
-        { id: 1, title: "Medical", description: "Clinics", targetAmountUsdc: "10000" },
+        {
+          id: 0,
+          title: "Supplies",
+          description: "Food & Rations",
+          targetAmountUsdc: "15000",
+        },
+        {
+          id: 1,
+          title: "Medical",
+          description: "Clinics",
+          targetAmountUsdc: "10000",
+        },
       ],
     });
 
@@ -446,8 +517,19 @@ async function runTestSuite() {
       `Correctly flags low story-document alignment for resume on flood relief (${mismatchReport.subScores.storyDocumentAlignmentScore}%)`
     );
     assert(
-      mismatchReport.storyDiscrepancies.some((d) => d.includes("Low Story-Document Alignment")),
+      mismatchReport.storyDiscrepancies.some((d) =>
+        d.includes("Low Story-Document Alignment")
+      ),
       "Explicitly reports Low Story-Document Alignment discrepancy for uncorroborated document"
+    );
+    assert(
+      mismatchReport.trustScore <= 40,
+      `Correctly heavily penalizes composite Trust Score when Story-Doc alignment fails (${mismatchReport.trustScore}/100, ${mismatchReport.rating})`
+    );
+    assert(
+      mismatchReport.rating === "High Risk" ||
+        mismatchReport.rating === "Caution",
+      `Flags low alignment campaign as ${mismatchReport.rating} (never High or Exceptional)`
     );
   }
 

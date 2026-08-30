@@ -15,6 +15,13 @@ import { computeDocumentMerkleRoot, computeCanonicalAuditHash, sha256Bytes, toHe
 import { sanitizeTextForPrivacyV2, type RedactionMetrics } from "./privacy-redactor";
 import { evaluateBudgetMath, type BudgetAnalysis } from "./budget-validator";
 import { sanitizeAgainstAdversarialInput, type DefenseSanitizationResult } from "./adversarial-defense";
+import {
+  evaluateLocalVisualAudit,
+  evaluateCloudVlmAudit,
+  type VisualArtifactAttachment,
+  type VisualAuditResult,
+} from "./vlm-client";
+import { sanitizeVisualDocument } from "./image-privacy";
 
 export interface DocumentAttachment {
   name: string;
@@ -22,14 +29,19 @@ export interface DocumentAttachment {
   size: number;
   sha256: string;
   textSnippet?: string;
+  base64Data?: string;
   ipfsCid?: string;
   ipfsUrl?: string;
-  category: "whitepaper" | "budget" | "pitch_deck" | "identity" | "technical_spec" | "other";
+  category: "whitepaper" | "budget" | "pitch_deck" | "identity" | "technical_spec" | "architecture_diagram" | "field_proof" | "other";
   pdfMetadata?: {
     pageCount?: number;
     creationDate?: string;
     producer?: string;
     modifiedDate?: string;
+  };
+  visualMetadata?: {
+    exifStripped?: boolean;
+    dimensions?: { width: number; height: number };
   };
 }
 
@@ -84,7 +96,10 @@ export interface AiAuditReport {
   redactionsCount: RedactionMetrics;    // Granular count of credentials and PII sanitized in-memory
   adversarialDefense: DefenseSanitizationResult;
   stylometricMetrics: StylometricMetrics;
+  visualAudit?: VisualAuditResult;      // Multimodal VLM layout, diagram, and proof findings
+  visualMerkleRoot?: string;            // Deterministic 32-byte SHA-256 Merkle root over visual assets
   privacyMode: "local_air_gapped" | "zero_retention_cloud";
+  privacyEngine?: "presidio_ner" | "builtin_ts";
   analyzedAt: number;
 }
 
@@ -103,9 +118,29 @@ export async function computeFileHash(file: File): Promise<string> {
  */
 export async function extractDocumentText(file: File): Promise<{
   textSnippet: string;
+  base64Data?: string;
   pdfMetadata?: DocumentAttachment["pdfMetadata"];
+  visualMetadata?: DocumentAttachment["visualMetadata"];
 }> {
   try {
+    if (
+      file.type.startsWith("image/") ||
+      file.name.endsWith(".png") ||
+      file.name.endsWith(".jpg") ||
+      file.name.endsWith(".jpeg") ||
+      file.name.endsWith(".webp")
+    ) {
+      const buffer = await file.arrayBuffer();
+      const sanitized = await sanitizeVisualDocument(buffer, file.type || "image/jpeg", file.name);
+      return {
+        textSnippet: `[Visual Document: ${file.name}, SHA-256: ${sanitized.sha256}, EXIF metadata stripped (${sanitized.exifTagsRemoved} tags removed)]`,
+        base64Data: sanitized.cleanedBase64,
+        visualMetadata: {
+          exifStripped: sanitized.exifTagsRemoved > 0,
+        },
+      };
+    }
+
     if (
       file.type.includes("text") ||
       file.name.endsWith(".md") ||
@@ -249,30 +284,79 @@ export function computePairwiseDocumentConsistency(
   const pairs: DocumentPairwiseConsistency[] = [];
   if (documents.length === 0) return pairs;
 
+  const STOP_WORDS = new Set([
+    "the", "and", "with", "this", "that", "from", "have", "will", "been", "were", "what", "their", "about", "which",
+    "when", "some", "more", "other", "into", "then", "them", "also", "these", "than", "your", "they", "there", "each",
+    "such", "make", "over", "very", "just", "only", "would", "could", "should", "shall", "does", "done", "must", "well",
+    "page", "file", "document", "user", "project", "using", "work", "time"
+  ]);
+
+  const storyTerms = storyText
+    .toLowerCase()
+    .split(/[^a-z0-9_-]+/)
+    .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
+  const uniqueStoryTerms = Array.from(new Set(storyTerms));
+
   // 1. Check each document against the story
   for (const doc of documents) {
     const docText = (doc.textSnippet || "").toLowerCase();
     const findings: string[] = [];
-    let score = 85;
 
-    // Terminology check
+    if (docText.trim().length === 0) {
+      pairs.push({
+        docAName: "Campaign Story",
+        docBName: doc.name,
+        consistencyScore: 20,
+        status: "Contradiction",
+        findings: ["Document contains no readable text or verifiable claims."],
+      });
+      continue;
+    }
+
+    let overlapHits = 0;
+    for (const term of uniqueStoryTerms) {
+      if (docText.includes(term) || (term.length >= 6 && docText.includes(term.slice(0, 5)))) {
+        overlapHits++;
+      }
+    }
+
+    const overlapRatio = uniqueStoryTerms.length > 0 ? overlapHits / uniqueStoryTerms.length : 0;
+    let score = Math.round(overlapRatio * 100);
+
+    // Terminology & Category check
     if (doc.category === "whitepaper" || doc.category === "technical_spec") {
       if (docText.includes("solana") && storyText.toLowerCase().includes("solana")) {
         findings.push("Matching blockchain runtime (Solana SVM) across story and whitepaper.");
+        score += 35;
       }
       if (docText.includes("erc20") && storyText.toLowerCase().includes("solana")) {
         findings.push("Discrepancy: Spec references EVM standards while story targets Solana.");
-        score -= 25;
+        score -= 35;
       }
+      if (overlapHits >= 1) score += 25;
     } else if (doc.category === "budget") {
       findings.push(`Budget sheet (${doc.name}) cross-referenced against campaign deliverables.`);
+      if (docText.includes("usdc") || docText.includes("$") || docText.includes("cost") || docText.includes("budget") || docText.includes("audit") || docText.includes("dev")) {
+        score += 60;
+      }
+      if (overlapHits >= 1) score += 20;
     }
+
+    if (overlapHits >= 4 || overlapRatio >= 0.25 || score >= 60) {
+      findings.push(`Corroborates project-specific concepts & specifications from campaign story.`);
+      score = Math.max(score, 85);
+    } else if (overlapHits === 0 || overlapRatio < 0.10) {
+      findings.push(`Low story relevance: document text contains minimal overlap (${overlapHits} matching concepts) with campaign story.`);
+      score = Math.min(score, 25);
+    }
+
+    score = Math.max(15, Math.min(100, score));
 
     pairs.push({
       docAName: "Campaign Story",
       docBName: doc.name,
-      consistencyScore: Math.max(20, Math.min(100, score)),
-      status: score >= 80 ? "Consistent" : score >= 60 ? "Minor Divergence" : "Contradiction",
+      consistencyScore: score,
+      status: score >= 75 ? "Consistent" : score >= 50 ? "Minor Divergence" : "Contradiction",
       findings,
     });
   }
@@ -304,6 +388,79 @@ export function computePairwiseDocumentConsistency(
   }
 
   return pairs;
+}
+
+/**
+ * Rigorously computes the unified on-chain Trust Score (0 - 100) and rating category
+ * based on all 5 multi-dimensional diligence factors.
+ *
+ * Factors & Weights:
+ * - Authenticity (25%): Document integrity, cryptographic consistency, valid metadata
+ * - Story vs. Document Alignment (35%): How accurately attached documents substantiate story claims & budget
+ * - Feasibility (20%): Realism of requested funding vs milestones and scope
+ * - Verifiability (10%): Measurability of milestone deliverable proofs
+ * - AI Content Authenticity (10%): Linguistic human engineering depth (100 - aiGeneratedProbability)
+ *
+ * Enforces critical factor guardrails:
+ * If wrong, unrelated, or contradictory documents are attached, the overall Trust Score
+ * is strictly capped in the High Risk / Caution tier (never above 30-38).
+ */
+export function computeCompositeTrustScore(subScores: AiSubScores): {
+  trustScore: number;
+  rating: "Exceptional" | "High" | "Moderate" | "Caution" | "High Risk";
+} {
+  const authenticity = Math.max(0, Math.min(100, Number(subScores.authenticityScore) || 75));
+  const alignment = Math.max(0, Math.min(100, Number(subScores.storyDocumentAlignmentScore) || 75));
+  const feasibility = Math.max(0, Math.min(100, Number(subScores.feasibilityScore) || 75));
+  const verifiability = Math.max(0, Math.min(100, Number(subScores.verifiabilityScore) || 75));
+  const aiContent = Math.max(0, Math.min(100, Number(subScores.aiContentScore) || 75));
+
+  // 1. Multi-factor weighted sum (Authenticity 25%, Alignment 35%, Feasibility 20%, Verifiability 10%, AI 10%)
+  const weightedSum =
+    authenticity * 0.25 +
+    alignment * 0.35 +
+    feasibility * 0.20 +
+    verifiability * 0.10 +
+    aiContent * 0.10;
+
+  let score = Math.round(weightedSum);
+
+  // 2. Strict Bottleneck Guardrails:
+  // If attached documents fail to substantiate the campaign story (e.g. wrong/unrelated/contradictory docs):
+  if (alignment <= 25) {
+    // Severe failure / wrong doc -> Max 25 (High Risk)
+    score = Math.min(score, 25);
+  } else if (alignment <= 35) {
+    // Very poor alignment -> Max 32 (High Risk)
+    score = Math.min(score, 32);
+  } else if (alignment <= 45) {
+    // Poor alignment -> Max 38 (Caution / High Risk)
+    score = Math.min(score, 38);
+  } else if (alignment <= 55) {
+    // Weak alignment -> Max 48 (Caution)
+    score = Math.min(score, 48);
+  } else if (alignment <= 68) {
+    // Moderate alignment -> Max 62 (Moderate)
+    score = Math.min(score, 62);
+  }
+
+  // If Authenticity is severely compromised (tampered document, fake metadata, or deceptive attachments)
+  if (authenticity <= 35) {
+    score = Math.min(score, 28);
+  } else if (authenticity <= 50) {
+    score = Math.min(score, 45);
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  let rating: "Exceptional" | "High" | "Moderate" | "Caution" | "High Risk" = "Moderate";
+  if (score >= 85) rating = "Exceptional";
+  else if (score >= 75) rating = "High";
+  else if (score >= 55) rating = "Moderate";
+  else if (score >= 40) rating = "Caution";
+  else rating = "High Risk";
+
+  return { trustScore: score, rating };
 }
 
 /**
@@ -384,6 +541,9 @@ export async function evaluateFallbackHeuristicAudit(params: {
 
   const fundingNum = Number(targetFundingUsdc) || 0;
   const analyzedAt = Date.now();
+  const titleLower = (title || "").toLowerCase();
+  const taglineLower = (tagline || "").toLowerCase();
+  const descLower = (description || "").toLowerCase();
 
   // 1. Adversarial Input Defense & Neutralization
   const defenseStory = sanitizeAgainstAdversarialInput(description);
@@ -403,6 +563,7 @@ export async function evaluateFallbackHeuristicAudit(params: {
 
     const docRedaction = sanitizeTextForPrivacyV2(defenseDoc.cleanedText);
     totalRedactions.keysAndSecrets += docRedaction.metrics.keysAndSecrets;
+    totalRedactions.namesAndLocations += docRedaction.metrics.namesAndLocations;
     totalRedactions.emailsAndPhones += docRedaction.metrics.emailsAndPhones;
     totalRedactions.financialAccounts += docRedaction.metrics.financialAccounts;
     totalRedactions.nationalIds += docRedaction.metrics.nationalIds;
@@ -417,8 +578,6 @@ export async function evaluateFallbackHeuristicAudit(params: {
   const allDocText = sanitizedDocs
     .map((d) => (d.textSnippet || d.name).toLowerCase())
     .join(" ");
-  const descLower = storyRedaction.sanitizedText.toLowerCase();
-  const titleLower = title.toLowerCase();
 
   // 3. Compute Document Merkle Root
   const docHashes = documents.map((d) => d.sha256);
@@ -510,52 +669,70 @@ export async function evaluateFallbackHeuristicAudit(params: {
   }
 
   if (documents.length === 0) {
-    alignmentScore = 35;
+    alignmentScore = 30;
+    authenticity = Math.min(authenticity, 50);
     storyDiscrepancies.push("No supporting documents attached to verify claims made in the campaign story.");
   } else {
-    // Check story domain keywords against document text
-    let matchedStoryDocTerms = 0;
-    const storyWords = descLower.split(/\s+/).filter((w) => w.length > 3);
-    const uniqueStoryWords = Array.from(new Set(storyWords));
+    const STOP_WORDS = new Set([
+      "the", "and", "with", "this", "that", "from", "have", "will", "been", "were", "what", "their", "about", "which",
+      "when", "some", "more", "other", "into", "then", "them", "also", "these", "than", "your", "they", "there", "each",
+      "such", "make", "over", "very", "just", "only", "would", "could", "should", "shall", "does", "done", "must", "well",
+      "page", "file", "document", "user", "project", "using", "work", "time"
+    ]);
 
-    for (const kw of activeKeywords) {
-      if (descLower.includes(kw) && allDocText.includes(kw)) {
+    // Substantive words from campaign story, title, and milestones
+    const milestoneText = plannedMilestones.map((m) => `${m.title} ${m.description}`).join(" ").toLowerCase();
+    const combinedStoryWords = `${titleLower} ${taglineLower} ${descLower} ${milestoneText}`
+      .split(/[^a-z0-9_-]+/)
+      .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
+    const uniqueStoryWords = Array.from(new Set(combinedStoryWords));
+
+    let matchedStoryDocTerms = 0;
+    for (const term of uniqueStoryWords) {
+      if (allDocText.includes(term)) {
         matchedStoryDocTerms++;
       }
     }
 
-    // Significant content keyword overlap between story and documents
-    let generalTermOverlap = 0;
-    for (const term of uniqueStoryWords.slice(0, 50)) {
-      if (allDocText.includes(term)) {
-        generalTermOverlap++;
+    let domainOntologyHits = 0;
+    for (const kw of activeKeywords) {
+      if ((descLower.includes(kw) || titleLower.includes(kw)) && allDocText.includes(kw)) {
+        domainOntologyHits++;
       }
     }
 
+    const overlapRatio = uniqueStoryWords.length > 0 ? matchedStoryDocTerms / uniqueStoryWords.length : 0;
     const hasTitleMatch = title.length > 4 && allDocText.includes(titleLower.slice(0, 15));
-    const hasTaglineMatch = tagline && tagline.length > 8 && allDocText.includes(tagline.toLowerCase().slice(0, 20));
+    const hasTaglineMatch = tagline && tagline.length > 8 && allDocText.includes(taglineLower.slice(0, 20));
 
-    if (matchedStoryDocTerms >= 3 || (generalTermOverlap >= 10 && (hasTitleMatch || hasTaglineMatch))) {
-      alignmentScore = 85;
+    if (
+      (domainOntologyHits >= 3 && matchedStoryDocTerms >= 6) ||
+      (overlapRatio >= 0.40 && matchedStoryDocTerms >= 8) ||
+      (hasTitleMatch && matchedStoryDocTerms >= 5)
+    ) {
+      alignmentScore = 88;
+      if (hasTitleMatch) alignmentScore += 4;
+      if (hasTaglineMatch) alignmentScore += 3;
+      alignmentScore = Math.min(98, alignmentScore);
       storyAlignmentFindings.push(
-        `Technical and domain concepts in story (${matchedStoryDocTerms} domain topics) are corroborated by attached documentation.`
+        `High story-document alignment: ${matchedStoryDocTerms} project concepts & deliverables corroborated in attached documentation.`
       );
-      if (hasTitleMatch) {
-        alignmentScore += 5;
-        storyAlignmentFindings.push(`Project branding ("${title}") is explicitly referenced in attached documents.`);
-      }
-      if (hasTaglineMatch) {
-        alignmentScore += 4;
-        storyAlignmentFindings.push(`Project mission ("${tagline.slice(0, 30)}...") is corroborated in attached documentation.`);
-      }
-    } else if (matchedStoryDocTerms === 0 && !hasTitleMatch) {
-      alignmentScore = 30;
+    } else if (matchedStoryDocTerms <= 2 || domainOntologyHits === 0 || overlapRatio < 0.15) {
+      // Wrong / unrelated document (e.g. resume, random file, or mismatched topic)
+      alignmentScore = 20;
+      authenticity = Math.min(authenticity, 35); // Penalize authenticity for irrelevant/fake doc attachment
       storyDiscrepancies.push(
-        `Low Story-Document Alignment: Attached document (e.g. personal profile/resume) does not substantiate the specific project scope described in the campaign story ("${title}").`
+        `Low Story-Document Alignment: Attached document (e.g. personal profile, resume, or unrelated file) does not substantiate the specific project deliverables described in the campaign story ("${title}").`
+      );
+    } else if (matchedStoryDocTerms <= 5 || overlapRatio < 0.30) {
+      alignmentScore = 38;
+      authenticity = Math.min(authenticity, 50);
+      storyDiscrepancies.push(
+        `Weak Story-Document Alignment: Attached documents only partially mention general terminology (${matchedStoryDocTerms} terms) but lack detailed project technical specifications.`
       );
     } else {
       alignmentScore = 60;
-      storyAlignmentFindings.push("Partial terminology match between story narrative and attached documents.");
+      storyAlignmentFindings.push("Moderate terminology correlation between story narrative and attached documentation.");
     }
 
     // EVM vs Solana mismatch check
@@ -586,21 +763,17 @@ export async function evaluateFallbackHeuristicAudit(params: {
   if (plannedMilestones.length >= 2) verifiability += 10;
   verifiability = Math.max(30, Math.min(98, verifiability));
 
-  // Composite Trust Score (0 - 100)
-  const trustScore = Math.round(
-    authenticity * 0.25 +
-    alignmentScore * 0.25 +
-    feasibility * 0.20 +
-    verifiability * 0.20 +
-    aiContentScore * 0.10
-  );
+  // Canonical Sub-Scores across all 5 dimensions
+  const subScores: AiSubScores = {
+    authenticityScore: authenticity,
+    storyDocumentAlignmentScore: alignmentScore,
+    feasibilityScore: feasibility,
+    verifiabilityScore: verifiability,
+    aiContentScore,
+  };
 
-  let rating: AiAuditReport["rating"] = "Moderate";
-  if (trustScore >= 85) rating = "Exceptional";
-  else if (trustScore >= 75) rating = "High";
-  else if (trustScore >= 55) rating = "Moderate";
-  else if (trustScore >= 40) rating = "Caution";
-  else rating = "High Risk";
+  // Unified Composite Trust Score & Rating
+  const { trustScore, rating } = computeCompositeTrustScore(subScores);
 
   const aiGeneratedRisk: AiAuditReport["aiGeneratedRisk"] =
     aiGeneratedProbability > 65 ? "High" : aiGeneratedProbability > 35 ? "Medium" : "Low";
@@ -678,14 +851,6 @@ export async function evaluateFallbackHeuristicAudit(params: {
   ];
 
   // Canonical SHA-256 Audit Binding Hash
-  const subScores: AiSubScores = {
-    authenticityScore: authenticity,
-    storyDocumentAlignmentScore: alignmentScore,
-    feasibilityScore: feasibility,
-    verifiabilityScore: verifiability,
-    aiContentScore,
-  };
-
   const auditHash = await computeCanonicalAuditHash({
     creatorPubkey,
     targetFundingUsdc,
@@ -693,6 +858,39 @@ export async function evaluateFallbackHeuristicAudit(params: {
     subScores,
     docMerkleRoot,
     analyzedAt,
+  });
+
+  // Evaluate visual artifacts with Local VLM Heuristic Engine
+  const visualArtifacts: VisualArtifactAttachment[] = documents
+    .filter(
+      (d) =>
+        (d.type && d.type.startsWith("image/")) ||
+        d.base64Data ||
+        d.category === "architecture_diagram" ||
+        d.category === "field_proof"
+    )
+    .map((d) => ({
+      name: d.name,
+      type: d.type || "image/jpeg",
+      size: d.size,
+      sha256: d.sha256,
+      base64Data: d.base64Data,
+      ipfsCid: d.ipfsCid,
+      visualCategory:
+        d.category === "architecture_diagram"
+          ? "architecture_diagram"
+          : d.category === "budget"
+          ? "budget_table"
+          : d.category === "field_proof"
+          ? "field_deliverable_proof"
+          : "other",
+      exifStripped: Boolean(d.visualMetadata?.exifStripped),
+    }));
+
+  const visualAudit = await evaluateLocalVisualAudit({
+    visuals: visualArtifacts,
+    storyText: description,
+    targetFundingUsdc: fundingNum,
   });
 
   return {
@@ -710,11 +908,14 @@ export async function evaluateFallbackHeuristicAudit(params: {
     budgetAnalysis,
     crossDocConsistencyMatrix,
     docMerkleRoot,
+    visualAudit,
+    visualMerkleRoot: visualAudit.visualMerkleRoot,
     auditHash,
     redactionsCount: totalRedactions,
     adversarialDefense: totalDefenseMetrics,
     stylometricMetrics: stylometrics,
     privacyMode: "local_air_gapped",
+    privacyEngine: "builtin_ts",
     analyzedAt,
   };
 }

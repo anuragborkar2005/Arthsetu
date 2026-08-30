@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
 import {
   evaluateFallbackHeuristicAudit,
+  computeCompositeTrustScore,
   computeStylometrics,
   computePairwiseDocumentConsistency,
   type AiAuditReport,
   type AiSubScores,
   type DocumentAttachment,
 } from "@/app/lib/ai-audit";
-import { sanitizeTextForPrivacyV2 } from "@/app/lib/privacy-redactor";
+import { sanitizeTextForPrivacyPresidio, type RedactionResult } from "@/app/lib/privacy-redactor";
 import { computeDocumentMerkleRoot, computeCanonicalAuditHash } from "@/app/lib/crypto-audit";
 import { evaluateBudgetMath } from "@/app/lib/budget-validator";
 import { sanitizeAgainstAdversarialInput, type DefenseSanitizationResult } from "@/app/lib/adversarial-defense";
+import {
+  evaluateCloudVlmAudit,
+  evaluateLocalVisualAudit,
+  type VisualArtifactAttachment,
+  type VisualAuditResult,
+} from "@/app/lib/vlm-client";
 
 export const runtime = "nodejs";
 
@@ -42,35 +49,44 @@ export async function POST(req: Request) {
     const defenseStory = sanitizeAgainstAdversarialInput(description.slice(0, 5000));
     const totalDefenseMetrics: DefenseSanitizationResult = { ...defenseStory };
 
-    // 2. Perform in-memory multi-layer PII & secret redaction
-    const storyRedaction = sanitizeTextForPrivacyV2(defenseStory.cleanedText);
+    // 2. Perform in-memory multi-layer PII & secret redaction (Presidio NLP + Web3 Crypto Recognizers)
+    const storyRedaction: RedactionResult = await sanitizeTextForPrivacyPresidio(defenseStory.cleanedText);
     const totalRedactions = { ...storyRedaction.metrics };
+    let activePrivacyEngine: "presidio_ner" | "builtin_ts" = storyRedaction.engine || "builtin_ts";
 
-    const sanitizedDocs = (documents as DocumentAttachment[]).map((d) => {
-      const defenseDoc = sanitizeAgainstAdversarialInput(d.textSnippet ? d.textSnippet.slice(0, 3500) : "");
-      totalDefenseMetrics.injectionsNeutralized += defenseDoc.injectionsNeutralized;
-      totalDefenseMetrics.hiddenCharactersRemoved += defenseDoc.hiddenCharactersRemoved;
-      if (defenseDoc.neutralizedPatterns.length > 0) {
-        totalDefenseMetrics.neutralizedPatterns.push(...defenseDoc.neutralizedPatterns);
-      }
+    const sanitizedDocs = await Promise.all(
+      (documents as DocumentAttachment[]).map(async (d) => {
+        const defenseDoc = sanitizeAgainstAdversarialInput(d.textSnippet ? d.textSnippet.slice(0, 3500) : "");
+        totalDefenseMetrics.injectionsNeutralized += defenseDoc.injectionsNeutralized;
+        totalDefenseMetrics.hiddenCharactersRemoved += defenseDoc.hiddenCharactersRemoved;
+        if (defenseDoc.neutralizedPatterns.length > 0) {
+          totalDefenseMetrics.neutralizedPatterns.push(...defenseDoc.neutralizedPatterns);
+        }
 
-      const docRedaction = sanitizeTextForPrivacyV2(defenseDoc.cleanedText);
-      totalRedactions.keysAndSecrets += docRedaction.metrics.keysAndSecrets;
-      totalRedactions.emailsAndPhones += docRedaction.metrics.emailsAndPhones;
-      totalRedactions.financialAccounts += docRedaction.metrics.financialAccounts;
-      totalRedactions.nationalIds += docRedaction.metrics.nationalIds;
-      totalRedactions.totalRedacted += docRedaction.metrics.totalRedacted;
-      return {
-        name: d.name,
-        category: d.category,
-        size: d.size,
-        sha256: d.sha256 || "",
-        hash: d.sha256 || "",
-        contentSample: docRedaction.sanitizedText || "[Binary / Encrypted Content]",
-        textSnippet: docRedaction.sanitizedText,
-        type: d.type || "application/octet-stream",
-      };
-    });
+        const docRedaction = await sanitizeTextForPrivacyPresidio(defenseDoc.cleanedText);
+        if (docRedaction.engine === "presidio_ner") {
+          activePrivacyEngine = "presidio_ner";
+        }
+        totalRedactions.keysAndSecrets += docRedaction.metrics.keysAndSecrets;
+        totalRedactions.namesAndLocations += docRedaction.metrics.namesAndLocations;
+        totalRedactions.emailsAndPhones += docRedaction.metrics.emailsAndPhones;
+        totalRedactions.financialAccounts += docRedaction.metrics.financialAccounts;
+        totalRedactions.nationalIds += docRedaction.metrics.nationalIds;
+        totalRedactions.totalRedacted += docRedaction.metrics.totalRedacted;
+        return {
+          name: d.name,
+          category: d.category,
+          size: d.size,
+          sha256: d.sha256 || "",
+          hash: d.sha256 || "",
+          contentSample: docRedaction.sanitizedText || "[Binary / Visual Content]",
+          textSnippet: docRedaction.sanitizedText,
+          type: d.type || "application/octet-stream",
+          base64Data: d.base64Data,
+          visualMetadata: d.visualMetadata,
+        };
+      })
+    );
 
     // 3. Compute Document Merkle Root
     const docHashes = (documents as DocumentAttachment[]).map((d) => d.sha256 || "");
@@ -100,21 +116,70 @@ export async function POST(req: Request) {
     // 6. Stylometric Metrics
     const stylometrics = computeStylometrics(storyRedaction.sanitizedText);
 
+    // 7. Visual Artifact Diligence (VLM)
+    const visualArtifacts: VisualArtifactAttachment[] = (documents as DocumentAttachment[])
+      .filter(
+        (d) =>
+          (d.type && d.type.startsWith("image/")) ||
+          d.base64Data ||
+          d.category === "architecture_diagram" ||
+          d.category === "field_proof"
+      )
+      .map((d) => ({
+        name: d.name,
+        type: d.type || "image/jpeg",
+        size: d.size,
+        sha256: d.sha256,
+        base64Data: d.base64Data,
+        ipfsCid: d.ipfsCid,
+        visualCategory:
+          d.category === "architecture_diagram"
+            ? "architecture_diagram"
+            : d.category === "budget"
+            ? "budget_table"
+            : d.category === "field_proof"
+            ? "field_deliverable_proof"
+            : "other",
+        exifStripped: Boolean(d.visualMetadata?.exifStripped),
+      }));
+
     const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+
+    let visualAudit: VisualAuditResult | undefined = undefined;
+    if (visualArtifacts.length > 0) {
+      if (geminiApiKey) {
+        visualAudit = await evaluateCloudVlmAudit({
+          visuals: visualArtifacts,
+          storyText: storyRedaction.sanitizedText,
+          targetFundingUsdc: fundingNum,
+          geminiApiKey,
+        });
+      } else {
+        visualAudit = await evaluateLocalVisualAudit({
+          visuals: visualArtifacts,
+          storyText: storyRedaction.sanitizedText,
+          targetFundingUsdc: fundingNum,
+        });
+      }
+    }
 
     if (geminiApiKey) {
       try {
-        const prompt = `You are a strict, privacy-focused Web3 & Solana security auditor for Arthasetu DAO.
-Your primary objective is to cross-examine the Campaign Story against the Attached Supporting Documents.
+        const prompt = `You are a strict, adversarial Web3 & Solana security auditor for Arthasetu DAO.
+Your primary objective is to cross-examine whether the Attached Supporting Documents genuinely corroborate the Campaign Story, technical architecture, and milestones.
 
-Evaluate the submission on:
-1. Story & Document Cross-Alignment:
-   - Does the written Campaign Story actually match the technical claims, budget numbers, and architecture in the attached documents?
-   - Identify contradictions or discrepancies (e.g. story claims $100k budget but budget sheet lists $25k; story promises zk-proofs on Solana but whitepaper discusses EVM ERC-20 token; story claims deliverables not present in whitepaper).
-2. Document Authenticity & Consistency.
-3. AI-Generated Content Probability (generic AI template spam vs real technical engineering depth).
-4. Budget Plausibility (does the requested USDC amount match realistic market dev costs for the deliverables).
-5. Deliverable Verifiability (are milestones measurable on-chain with git commits/test reports).
+CRITICAL CROSS-EXAMINATION RULES:
+1. storyDocumentAlignmentScore (0-100):
+   - You MUST cross-check the claims, architecture, and deliverables in the Campaign Story against the uploaded documents.
+   - If ANY attached document is WRONG, IRRELEVANT, UNRELATED, or INSUFFICIENT (e.g. uploading a personal resume/CV, random coursework/PDF from another domain, or boilerplate text that does not describe the specific deliverables and budget of THIS campaign):
+     * You MUST assign storyDocumentAlignmentScore between 10 and 25 (NEVER above 25).
+     * You MUST assign authenticityScore between 20 and 40 (submitting unrelated files is an unverified/misleading submission).
+     * You MUST add a clear finding to storyDiscrepancies explaining the exact misalignment (e.g. "Low Story-Document Alignment: Attached document (e.g. personal profile) does not substantiate the specific project scope...").
+   - ONLY award a high score (80-100) if the uploaded documents explicitly corroborate the exact project architecture, budget math, and deliverables described in the story.
+2. authenticityScore (0-100): Document credibility and genuine relevance to the campaign.
+3. feasibilityScore (0-100): Realistic funding target vs deliverables and budget scope.
+4. verifiabilityScore (0-100): Clear on-chain testable criteria (git commits, test reports, live URLs).
+5. aiContentScore (0-100): 100 = authentic human technical depth and diverse vocabulary, 0 = pure generic AI template spam.
 
 Campaign Details:
 - Title: ${title}
@@ -134,8 +199,6 @@ ${JSON.stringify(plannedMilestones, null, 2)}
 
 Respond ONLY with a valid JSON object matching this exact schema:
 {
-  "trustScore": number (0-100),
-  "rating": "Exceptional" | "High" | "Moderate" | "Caution" | "High Risk",
   "aiGeneratedRisk": "Low" | "Medium" | "High",
   "aiGeneratedProbability": number (0-100),
   "subScores": {
@@ -162,13 +225,23 @@ Respond ONLY with a valid JSON object matching this exact schema:
   ]
 }`;
 
+        const imageParts = visualArtifacts
+          .filter((v) => v.base64Data)
+          .slice(0, 3)
+          .map((v) => ({
+            inlineData: {
+              mimeType: v.type || "image/jpeg",
+              data: v.base64Data!.replace(/^data:[^;]+;base64,/, ""),
+            },
+          }));
+
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
+              contents: [{ parts: [{ text: prompt }, ...imageParts] }],
               generationConfig: { responseMimeType: "application/json" },
             }),
           }
@@ -180,14 +253,16 @@ Respond ONLY with a valid JSON object matching this exact schema:
           if (rawJson) {
             const parsed = JSON.parse(rawJson);
 
-            const trustScore = Math.min(100, Math.max(0, Number(parsed.trustScore) || 75));
             const subScores: AiSubScores = {
-              authenticityScore: Number(parsed.subScores?.authenticityScore) || 80,
-              storyDocumentAlignmentScore: Number(parsed.subScores?.storyDocumentAlignmentScore) || 85,
-              feasibilityScore: Number(parsed.subScores?.feasibilityScore) || 80,
-              verifiabilityScore: Number(parsed.subScores?.verifiabilityScore) || 80,
-              aiContentScore: Number(parsed.subScores?.aiContentScore) || 85,
+              authenticityScore: Math.min(100, Math.max(0, Number(parsed.subScores?.authenticityScore) || 75)),
+              storyDocumentAlignmentScore: Math.min(100, Math.max(0, Number(parsed.subScores?.storyDocumentAlignmentScore) || 75)),
+              feasibilityScore: Math.min(100, Math.max(0, Number(parsed.subScores?.feasibilityScore) || 75)),
+              verifiabilityScore: Math.min(100, Math.max(0, Number(parsed.subScores?.verifiabilityScore) || 75)),
+              aiContentScore: Math.min(100, Math.max(0, Number(parsed.subScores?.aiContentScore) || 75)),
             };
+
+            // Mathematically synthesize Trust Score & Rating from all 5 combined factors
+            const { trustScore, rating } = computeCompositeTrustScore(subScores);
 
             const auditHash = await computeCanonicalAuditHash({
               creatorPubkey,
@@ -200,8 +275,8 @@ Respond ONLY with a valid JSON object matching this exact schema:
 
             const report: AiAuditReport = {
               trustScore,
-              rating: parsed.rating || "High",
-              aiGeneratedRisk: parsed.aiGeneratedRisk || "Low",
+              rating,
+              aiGeneratedRisk: parsed.aiGeneratedRisk || (parsed.aiGeneratedProbability > 65 ? "High" : parsed.aiGeneratedProbability > 35 ? "Medium" : "Low"),
               aiGeneratedProbability: Number(parsed.aiGeneratedProbability) || 20,
               subScores,
               storyAlignmentFindings: Array.isArray(parsed.storyAlignmentFindings) ? parsed.storyAlignmentFindings : [],
@@ -213,11 +288,14 @@ Respond ONLY with a valid JSON object matching this exact schema:
               budgetAnalysis,
               crossDocConsistencyMatrix,
               docMerkleRoot,
+              visualAudit,
+              visualMerkleRoot: visualAudit?.visualMerkleRoot,
               auditHash,
               redactionsCount: totalRedactions,
               adversarialDefense: totalDefenseMetrics,
               stylometricMetrics: stylometrics,
               privacyMode: "zero_retention_cloud",
+              privacyEngine: activePrivacyEngine,
               analyzedAt,
             };
 
